@@ -3,27 +3,31 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Portal · IDs Próximos</title>
+<title>ID GPS · IDs Próximos</title>
 <meta name="theme-color" content="#0b1220" />
 <style>
   :root{
     --bg:#0b1220; --fg:#fff; --muted:#94a3b8;
-    --brand:#0ea5e9; --brand2:#5eead4;
     --card:#0f172a; --border:#1f2937; --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
-    --btn:#25D366;
+    --btn:#25D366; --surface:#0b1327;
   }
   html,body{margin:0;height:100%}
   body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
 
-  /* Header estilo portal */
-  header{background:linear-gradient(90deg,var(--brand),var(--brand2));padding:16px 18px}
-  .brand{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
-  .brand h1{margin:0;font-size:1.2rem;font-weight:1000;letter-spacing:.02em}
-  .brand small{opacity:.9;font-weight:700}
+  /* Header minimalíssimo */
+  header{padding:10px 14px}
+  .brand{max-width:1100px;margin:0 auto}
+  .brand h1{margin:0;font-size:.95rem;font-weight:900;letter-spacing:.08em;color:var(--muted)}
 
-  /* Barra de status (diagnóstico) */
-  #status{max-width:1100px;margin:10px auto 0;display:flex;gap:10px;align-items:center;padding:0 12px}
-  .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#0b1327;color:#c0caf5;padding:8px 12px;border-radius:999px;font-weight:800}
+  /* Barra de status (diagnóstico + GPS) */
+  #status{max-width:1100px;margin:6px auto 0;display:flex;gap:10px;align-items:center;padding:0 12px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:#c0caf5;padding:8px 12px;border-radius:999px;font-weight:800}
+  .chip{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+        padding:10px 12px;border-radius:999px;font-weight:800;user-select:none}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .ok .dot{background:var(--ok)}     .ok{color:#cde8d4}
+  .warn .dot{background:var(--warn)} .warn{color:#ffe7bf}
+  .bad .dot{background:var(--bad)}   .bad{color:#ffc7c7}
 
   /* Conteúdo */
   main{max-width:1100px;margin:10px auto;display:grid;gap:14px;padding:0 12px}
@@ -31,28 +35,22 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
   .card h2{margin:0 0 10px 0;font-size:1.05rem;color:#e2e8f0}
 
-  /* Chip de GPS */
-  .chip{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);background:#0b1327;color:var(--muted);
-        padding:10px 12px;border-radius:999px;font-weight:800;user-select:none}
-  .dot{width:10px;height:10px;border-radius:50%}
-  .ok .dot{background:var(--ok)}     .ok{color:#cde8d4}
-  .warn .dot{background:var(--warn)} .warn{color:#ffe7bf}
-  .bad .dot{background:var(--bad)}   .bad{color:#ffc7c7}
-
-  /* Lista de IDs */
-  ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
-  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#0d1429}
-  li:first-child{border-color:#34d399} /* destaque do mais próximo */
-
   /* Ações */
   .actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   button{padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;cursor:pointer}
   #btnSend{background:var(--btn)}
   button:disabled{opacity:.5;cursor:not-allowed}
-
-  /* Checkbox “incluir mapas” (discreto) */
   .opt{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.92rem}
   .opt input{width:16px;height:16px;accent-color:#0ea5e9}
+
+  /* Lista / Skeleton */
+  ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#0d1429}
+  li:first-child{border-color:#34d399} /* mais próximo */
+  .skeleton{height:42px;border-radius:10px;background:
+    linear-gradient(90deg,#111827 25%,#1f2937 40%,#111827 60%);
+    background-size:200% 100%; animation:shimmer 1.1s infinite}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
   /* Layout responsivo */
   .col-4{grid-column:span 4}
@@ -62,17 +60,10 @@
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <h1>Portal · IDs Próximos</h1>
-    <small>Operação limpa · envio por WhatsApp</small>
-  </div>
-</header>
+<header><div class="brand"><h1>ID GPS</h1></div></header>
 
 <div id="status">
-  <div id="gpsChip" class="chip bad" aria-live="polite">
-    <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
-  </div>
+  <div id="gpsChip" class="chip bad" aria-live="polite"><span class="dot"></span><span id="gpsText">GPS: aguardando…</span></div>
   <div id="diag" class="badge" style="display:none">—</div>
 </div>
 
@@ -93,7 +84,14 @@
     <!-- IDs próximos -->
     <section class="card col-8" aria-label="IDs mais próximos">
       <h2>IDs próximos</h2>
-      <ul id="list" aria-live="polite"></ul>
+      <ul id="list" aria-live="polite">
+        <!-- skeleton de carregamento -->
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+      </ul>
     </section>
   </div>
 </main>
@@ -114,6 +112,7 @@ const gpsText = document.getElementById('gpsText');
 const diag    = document.getElementById('diag');
 const btnSend = document.getElementById('btnSend');
 const chkMaps = document.getElementById('chkMaps');
+const listEl  = document.getElementById('list');
 
 function showDiag(msg){
   diag.style.display = 'inline-flex';
@@ -226,22 +225,24 @@ async function loadCSV(){
 /* ========= Render ========= */
 function render(force=false){
   const now = performance.now();
-  if(!force && now - lastRender < 180) return;
+  if(!force && now - lastRender < 160) return;
   lastRender = now;
 
-  const ul = document.getElementById('list');
-  ul.innerHTML = '';
+  listEl.innerHTML = '';
   if(!lastPos || !dataset.length) return;
 
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
-  if(!items.length){ ul.innerHTML = '<li>—</li>'; return; }
+  if(!items.length){ listEl.innerHTML = '<li>—</li>'; return; }
 
+  // Render
+  const frag = document.createDocumentFragment();
   items.forEach((o, idx)=>{
     const li = document.createElement('li');
     li.textContent = o.id;
-    if(idx===0) li.style.borderColor = '#34d399'; // mais próximo
-    ul.appendChild(li);
+    if(idx===0) li.style.borderColor = '#34d399';
+    frag.appendChild(li);
   });
+  listEl.appendChild(frag);
 }
 
 /* ========= GPS (prompt imediato + watch) ========= */
