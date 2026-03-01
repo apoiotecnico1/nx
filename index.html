@@ -7,19 +7,18 @@
 <meta name="theme-color" content="#ffffff" />
 <style>
   :root{
-    /* Motiva Rodovias – azul → ciano (inspirado no brand digital) */
+    /* Motiva Rodovias – azul → ciano */
     --brand:#2563eb;      /* azul vivo */
     --brand2:#22c55e;     /* ciano/verde vivo */
 
-    /* Tema claro moderno e legível em campo */
+    /* Tema claro moderno */
     --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e5e7eb; --surface:#ffffff;
 
     /* Estados de GPS */
     --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
 
-    /* Botões */
-    --btn:#22c55e;        /* WhatsApp vibe */
-    --btn-alt:#2563eb;    /* ações secundárias */
+    /* Botão principal */
+    --btn:#22c55e;
 
     /* Acessibilidade e depth */
     --focus:#3b82f6; --shadow:0 6px 20px rgba(15,23,42,.06); --radius:14px;
@@ -31,7 +30,7 @@
   body{
     margin:0;background:
       radial-gradient(1200px 1200px at 20% -20%, #e6f7ff 0%, transparent 50%) no-repeat,
-      repeating-linear-gradient(90deg, #f3f4f6 0 4px, #f8fafc 4px 12px); /* sutil sensação de pista */
+      repeating-linear-gradient(90deg, #f3f4f6 0 4px, #f8fafc 4px 12px);
     color:var(--fg);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
     line-height:1.35; -webkit-font-smoothing:antialiased;
@@ -78,18 +77,14 @@
   button:hover{filter:brightness(1.03)}
   button:disabled{opacity:.55;cursor:not-allowed;filter:none}
   #btnSend{background:var(--btn)}
-  #btnSendNew{background:var(--btn-alt)}
-  .opt{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.95rem}
-  .opt input{width:16px;height:16px;accent-color:var(--brand)}
 
-  /* Campo observação */
-  .field{display:flex;flex-direction:column;gap:6px}
-  .field label{color:#0f172a;font-weight:800;font-size:.95rem}
-  .field input{
-    padding:12px;border-radius:12px;border:1px solid var(--border); background:#ffffff;color:#0f172a;font-size:1rem;
-    outline:2px solid transparent;transition:outline-color .15s ease, box-shadow .15s ease
+  /* Opções discretas */
+  .opt{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.95rem}
+  .opt input[type="checkbox"]{width:16px;height:16px;accent-color:var(--brand)}
+  .opt select{
+    padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+    background:#fff;color:#0f172a;font-weight:800;cursor:pointer
   }
-  .field input:focus{outline:2px solid var(--focus);outline-offset:2px;box-shadow:0 0 0 4px rgba(59,130,246,.15)}
 
   /* Lista / Skeleton */
   ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
@@ -112,7 +107,7 @@
   @media (max-width:900px){ .col-4,.col-8{grid-column:1/-1} }
 
   /* Acessibilidade */
-  button:focus-visible, input:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+  button:focus-visible, select:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
 </style>
 </head>
 <body>
@@ -135,31 +130,31 @@
 
 <main>
   <div class="grid">
-    <!-- Ações -->
+    <!-- Ações (principal) -->
     <section class="card col-4" aria-label="Ações">
       <h2>Ações</h2>
 
-      <div class="actions" style="margin-bottom:12px">
+      <div class="actions" style="margin-bottom:8px">
         <button id="btnSend" disabled>Enviar ID por WhatsApp</button>
+      </div>
+
+      <div class="actions" style="gap:16px">
+        <label class="opt" title="Quantidade de IDs a enviar (padrão 10)">
+          <span style="opacity:.9">quantidade</span>
+          <select id="qty">
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+
         <label class="opt" title="Adicionar links do Google Maps junto com os IDs">
           <input type="checkbox" id="chkMaps" />
           <span>incluir links de mapa</span>
         </label>
-      </div>
-
-      <!-- Ponto sem cadastro (apenas localização real) -->
-      <div class="field" style="margin-top:6px">
-        <label for="obs">Observação (ponto sem cadastro, opcional)</label>
-        <input id="obs" type="text" placeholder="Ex.: Poste novo no canteiro central" />
-      </div>
-
-      <div class="opt" style="margin-top:8px">
-        <input type="checkbox" id="chkNearest" checked />
-        <span>citar ID mais próximo no envio</span>
-      </div>
-
-      <div class="actions" style="margin-top:12px">
-        <button id="btnSendNew" disabled>Enviar localização (sem cadastro)</button>
       </div>
     </section>
 
@@ -188,11 +183,9 @@ const gpsChip=document.getElementById('gpsChip');
 const gpsText=document.getElementById('gpsText');
 const diag=document.getElementById('diag');
 const btnSend=document.getElementById('btnSend');
-const btnSendNew=document.getElementById('btnSendNew');
 const chkMaps=document.getElementById('chkMaps');
-const chkNearest=document.getElementById('chkNearest');
+const qtySel=document.getElementById('qty');
 const listEl=document.getElementById('list');
-const obsInput=document.getElementById('obs');
 
 /* ===== Helpers ===== */
 function showDiag(msg){ diag.style.display='inline-flex'; diag.textContent=msg; }
@@ -211,18 +204,6 @@ function fmtHead(h){ return (h==null||!Number.isFinite(h))? null : Math.round(h)
 function fmtSpd(s){ return (s==null||!Number.isFinite(s))? null : Math.round(s*3.6)+' km/h'; }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
 
-/* ===== Geohash (precisão ~2,4 m) ===== */
-const GH32="0123456789bcdefghjkmnpqrstuvwxyz";
-function geohash(lat, lon, precision=9){
-  let idx=0,bit=0,even=true,gh=''; let latMin=-90,latMax=90,lonMin=-180,lonMax=180;
-  while(gh.length<precision){
-    if(even){ const mid=(lonMin+lonMax)/2; if(lon>=mid){idx=idx*2+1;lonMin=mid;} else {idx=idx*2;lonMax=mid;} }
-    else    { const mid=(latMin+latMax)/2; if(lat>=mid){idx=idx*2+1;latMin=mid;} else {idx=idx*2;latMax=mid;} }
-    even=!even; if(++bit==5){ gh+=GH32.charAt(idx); bit=0; idx=0; }
-  }
-  return gh;
-}
-
 /* ===== Chip e botões ===== */
 function updateGpsChip(){
   if(!lastPos || lastPos.acc==null){ gpsChip.className='chip bad'; gpsText.textContent='GPS: buscando…'; return; }
@@ -234,7 +215,6 @@ function updateGpsChip(){
 function updateButtons(){
   const baseOk=dataset.length>0, posOk=!!lastPos;
   btnSend.disabled=!(baseOk && posOk);
-  btnSendNew.disabled=!posOk;  // sem cadastro: basta ter posição real
 }
 
 /* ===== CSV Loader ===== */
@@ -265,9 +245,13 @@ async function loadCSV(){
 function render(force=false){
   const now=performance.now(); if(!force && now-lastRender<150) return; lastRender=now;
   listEl.innerHTML=''; if(!lastPos||!dataset.length) return;
-  const items=nearestN(lastPos.lat,lastPos.lon,10); if(!items.length){ listEl.innerHTML='<li>—</li>'; return; }
+
+  const qty = Number(qtySel.value || 10);
+  const items=nearestN(lastPos.lat,lastPos.lon,qty);
+  if(!items.length){ listEl.innerHTML='<li>—</li>'; return; }
+
   const frag=document.createDocumentFragment();
-  items.forEach((o,idx)=>{ const li=document.createElement('li'); li.textContent=o.id; if(idx===0) li.style.borderColor='#22c55e'; frag.appendChild(li); });
+  items.forEach((o,idx)=>{ const li=document.createElement('li'); li.textContent=o.id; if(idx===0) li.style.borderColor='var(--btn)'; frag.appendChild(li); });
   listEl.appendChild(frag);
 }
 
@@ -293,7 +277,8 @@ function startGPS(){
 /* ===== Enviar (IDs) ===== */
 btnSend.addEventListener('click', ()=>{
   if(!lastPos) return;
-  const items=nearestN(lastPos.lat,lastPos.lon,10); if(!items.length) return;
+  const qty = Number(qtySel.value || 10);
+  const items=nearestN(lastPos.lat,lastPos.lon,qty); if(!items.length) return;
 
   const accTxt=fmtAcc(lastPos.acc), head=fmtHead(lastPos.head), spd=fmtSpd(lastPos.spd);
   let tx=`${nowBR()}\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}`;
@@ -309,35 +294,8 @@ btnSend.addEventListener('click', ()=>{
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
-/* ===== Enviar (ponto sem cadastro) – sempre com mapa e contexto ===== */
-btnSendNew.addEventListener('click', ()=>{
-  if(!lastPos) return;
-  const accTxt=fmtAcc(lastPos.acc), head=fmtHead(lastPos.head), spd=fmtSpd(lastPos.spd);
-  const obs=obsInput.value.trim();
-  const gh = geohash(lastPos.lat, lastPos.lon, 9);
-
-  // ID mais próximo do ponto REAL (sem ajuste)
-  let nearestLine='';
-  if(chkNearest.checked && dataset.length){
-    const [n]=nearestN(lastPos.lat,lastPos.lon,1);
-    if(n){ const dist=Math.round(hav(lastPos.lat,lastPos.lon,n.lat,n.lon)); nearestLine=`\nID mais próximo: ${n.id} — ${dist} m`; }
-  }
-
-  const linkG = `https://maps.google.com/?q=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}`;
-  const linkW = `https://waze.com/ul?ll=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}&navigate=yes`;
-  const linkGeo = `geo:${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}?q=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}`;
-
-  let tx = `PONTO SEM CADASTRO — ${nowBR()}\n`;
-  tx += `Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}`;
-  if(spd)  tx+=` · Vel ${spd}`;
-  if(head) tx+=` · Curso ${head}`;
-  tx += `\nGeohash: ${gh}`;
-  if(obs) tx+=`\nObservação: ${obs}`;
-  tx += nearestLine;
-  tx += `\n\nLinks de mapa:\nGoogle Maps: ${linkG}\nWaze: ${linkW}\nGeo URI: ${linkGeo}`;
-
-  window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
-});
+/* ===== Eventos ===== */
+qtySel.addEventListener('change', ()=> render(true));
 
 /* ===== Boot ===== */
 (function boot(){ loadCSV(); startGPS(); })();
