@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NOX – Inspeção Noturna com Vídeo (MQV-ready)</title>
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
+  <style>
+    :root{ --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --accent:#0ea5e9; --accent2:#22c55e; --warn:#f59e0b; --err:#ef4444; --card:#0f172a; --border:#1f2937; --wa:#25D366; }
+    @media (prefers-color-scheme: light){ :root{ --bg:#ffffff; --fg:#0f172a; --muted:#64748b; --accent:#0284c7; --accent2:#16a34a; --warn:#d97706; --err:#dc2626; --card:#f8fafc; --border:#e2e8f0; } }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";line-height:1.45;min-height:100vh}
+
+    /* Splash */
+    .splash{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(1000px 600px at 50% -20%, color-mix(in srgb,var(--accent) 22%, transparent), transparent), var(--bg); z-index:9999}
+    .splash-card{display:grid;gap:12px;place-items:center;text-align:center;padding:28px 20px;border-radius:20px;background:color-mix(in srgb, var(--card) 85%, transparent);border:1px solid var(--border);box-shadow:0 30px 120px rgba(0,0,0,.25)}
+    .logo{font-weight:900;letter-spacing:.06em;font-size:clamp(1.2rem,3vw+1rem,2rem);background:linear-gradient(90deg,var(--accent),#5eead4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .steps{color:var(--muted);font-size:.98rem;min-height:1.2em}
+    .progress{height:6px;width:240px;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#5eead4)}
+
+    /* AppBar */
+    .appbar{position:sticky;top:0;z-index:10;background:linear-gradient(90deg,var(--accent),#5eead4)}
+    .appbar-inner{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;color:#fff}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.03em}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+    .container{max-width:1160px;margin:0 auto;padding:14px}
+    .grid{display:grid;gap:14px;grid-template-columns:1fr}
+    @media (min-width:980px){.grid{grid-template-columns:1.2fr .8fr}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
+    .card h2{margin:4px 0 10px;font-size:1.02rem}
+
+    .btn{appearance:none;border:1px solid var(--border);background:color-mix(in srgb,var(--accent) 20%, transparent);color:#fff;padding:10px 12px;border-radius:12px;cursor:pointer;font-weight:800}
+    .btn.primary{background:var(--accent);border-color:transparent}
+    .btn.ok{background:var(--accent2);border-color:transparent}
+    .btn.warn{background:var(--warn);color:#000;border-color:transparent}
+    .btn.err{background:var(--err);border-color:transparent}
+    .btn.wa{background:var(--wa);border-color:transparent}
+    .select,.input{appearance:none;border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:8px 10px;border-radius:10px;font-weight:700}
+    .status{margin-top:6px;font-size:.95rem;color:var(--muted)}
+
+    .kvs{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-variant-numeric:tabular-nums}
+    .kvs dt{color:var(--muted)} .kvs dd{margin:0;font-weight:700}
+
+    /* HUD (vídeo + canvas) */
+    .hudWrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);overflow:hidden;background:#000}
+    #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    #hud{position:absolute;inset:0;width:100%;height:100%}
+    .hudCtrls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+
+    /* IDs próximos */
+    .currentID{font-size:1.6rem;font-weight:900;letter-spacing:.04em}
+    ol#topList{margin:0;padding-left:18px;display:grid;gap:6px}
+    .item-line{display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border:1px dashed var(--border);border-radius:12px;background:color-mix(in srgb,var(--card) 86%, transparent)}
+    .id{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    /* Tabela */
+    .table{width:100%;border-collapse:collapse;font-size:.96rem}
+    .table th,.table td{border-bottom:1px dashed var(--border);padding:8px 6px;vertical-align:top}
+    .table th{color:var(--muted);font-weight:700;text-align:left}
+
+    /* FAB WhatsApp */
+    .fab{position:fixed;right:16px;bottom:16px;z-index:20;display:inline-flex;align-items:center;gap:10px;justify-content:center;height:56px;border-radius:999px;background:var(--wa);color:#fff;box-shadow:0 12px 24px rgba(0,0,0,.18);border:none;cursor:pointer;padding:0 14px;font-weight:900}
+    .fab:active{transform:translateY(1px)}
+    .fab svg{width:24px;height:24px;fill:#fff}
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <!-- Splash -->
+  <div id="splash" class="splash" role="dialog" aria-modal="true">
+    <div class="splash-card">
+      <div class="logo">NOX — Inspeção Noturna com Vídeo</div>
+      <div class="steps" id="splashStep">Preparando…</div>
+      <div class="progress"><div id="splashBar" class="bar"></div></div>
+    </div>
+  </div>
+
+  <!-- AppBar -->
+  <div class="appbar">
+    <div class="appbar-inner">
+      <div class="brand">NOX · Vídeo-Relatório</div>
+      <div class="row">
+        <label for="qtySelect" class="status">Top:</label>
+        <select id="qtySelect" class="select" aria-label="Quantidade de IDs próximos na lista">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+        <button id="btnStreet" class="btn" type="button">Street View</button>
+        <button id="btnMaps" class="btn" type="button">Google Maps</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <div>
+        <!-- GPS + HUD de vídeo -->
+        <section class="card">
+          <h2>GPS & Vídeo</h2>
+          <dl class="kvs">
+            <dt>Latitude:</dt><dd id="latVal">—</dd>
+            <dt>Longitude:</dt><dd id="lonVal">—</dd>
+            <dt>Precisão:</dt><dd id="accVal">—</dd>
+            <dt>Velocidade:</dt><dd id="spdVal">—</dd>
+            <dt>Status:</dt><dd id="statusVal" class="status">Iniciando…</dd>
+          </dl>
+          <div class="hudWrap">
+            <video id="cam" playsinline muted></video>
+            <canvas id="hud"></canvas>
+          </div>
+          <div class="hudCtrls">
+            <button id="btnRec" class="btn err" type="button">● Iniciar gravação</button>
+            <button id="btnMark" class="btn warn" type="button">Marcar evento</button>
+            <button id="btnStop" class="btn ok" type="button" disabled>Parar & salvar vídeo</button>
+            <a id="dlVideo" class="btn" href="#" download="video_relatorio.webm" hidden>Baixar vídeo</a>
+            <button id="shareVideo" class="btn wa" type="button" hidden>Compartilhar vídeo</button>
+          </div>
+        </section>
+
+        <!-- ID atual + marcações rápidas -->
+        <section class="card">
+          <h2>ID atual</h2>
+          <div class="currentID" id="currentId">—</div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn err" data-flag="APAGADO">APAGADO</button>
+            <button class="btn warn" data-flag="INTERMITENTE">INTERMITENTE</button>
+            <button class="btn warn" data-flag="OSCILANTE">OSCILANTE</button>
+            <button class="btn ok" data-flag="OK">OK</button>
+            <input id="noteInput" class="input" style="min-width:220px" placeholder="Observação (opcional)">
+            <button id="btnAnotar" class="btn primary" type="button">Anotar</button>
+          </div>
+        </section>
+
+        <!-- Lista IDs próximos -->
+        <section class="card">
+          <h2>IDs próximos</h2>
+          <ol id="topList" aria-live="polite"></ol>
+          <div id="listStatus" class="status">Aguardando dados…</div>
+        </section>
+      </div>
+
+      <div>
+        <!-- Tabela de ocorrências / timeline -->
+        <section class="card">
+          <h2>Ocorrências & Timeline</h2>
+          <div class="row" style="margin-bottom:8px">
+            <input id="searchId" class="input" style="min-width:200px" placeholder="Buscar/selecionar ID…" />
+            <button id="btnSelect" class="btn" type="button">Selecionar como atual</button>
+            <label class="status" style="display:inline-flex;align-items:center;gap:6px"><input id="chkNC" type="checkbox"> Só não conformes</label>
+          </div>
+          <table class="table" id="occTable">
+            <thead><tr><th><input id="chkAll" type="checkbox"></th><th>#</th><th>ID</th><th>Status</th><th>Obs</th><th>Data/Hora</th><th>Posição</th><th>KM</th><th>T</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div class="row" style="margin-top:8px">
+            <button id="btnSendSel" class="btn wa" type="button">Enviar selecionados (WhatsApp)</button>
+            <button id="btnSendAll" class="btn wa" type="button">Enviar TODOS (WhatsApp)</button>
+            <button id="btnCSV" class="btn" type="button">Exportar CSV</button>
+            <button id="btnClear" class="btn err" type="button">Limpar tudo</button>
+          </div>
+        </section>
+
+        <!-- Mini mapa (opcional) -->
+        <section class="card">
+          <h2>Mapa (opcional)</h2>
+          <div id="map" style="width:100%;height:220px;border-radius:12px;border:1px solid var(--border)"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB WhatsApp (envio rápido do Top) -->
+  <button id="fabWhats" class="fab" title="Enviar Top (IDs próximos) no WhatsApp" aria-label="Enviar IDs do Top no WhatsApp">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M19.11 17.19c-.27-.14-1.57-.77-1.81-.86-.24-.09-.42-.14-.6.14-.18.27-.69.86-.85 1.03-.16.18-.31.2-.58.07-.27-.14-1.13-.42-2.15-1.34-.79-.71-1.32-1.58-1.48-1.85-.16-.27-.02-.41.12-.55.12-.12.27-.31.4-.47.13-.16.18-.27.27-.45.09-.18.05-.34-.02-.47-.07-.14-.6-1.45-.82-1.99-.22-.53-.44-.46-.6-.47-.16-.01-.34-.01-.52-.01s-.47.07-.72.34c-.24.27-.94.92-.94 2.25 0 1.33.96 2.62 1.09 2.8.13.18 1.88 2.87 4.55 4.02.64.28 1.14.45 1.53.58.64.2 1.22.17 1.68.1.51-.08 1.57-.64 1.79-1.26.22-.62.22-1.15.15-1.26-.07-.11-.24-.18-.51-.31zM16.02 3C9.94 3 5 7.94 5 14.02c0 2.63.87 5.06 2.36 7.02L6 27l6.12-1.32c1.88 1.16 4.1 1.83 6.5 1.83 6.08 0 11.02-4.94 11.02-11.02S22.1 3 16.02 3zm0 20.1c-2.32 0-4.47-.75-6.22-2.03l-.45-.33-3.69.8.79-3.6-.35-.47A8.964 8.964 0 0 1 7.02 14c0-4.97 4.03-9 9-9s9 4.03 9 9-4.03 9-9 9z"/></svg>
+    <span id="fabQty">10</span>
+  </button>
+
+  <script>
+    /********* Utils *********/
+    const $ = (sel) => document.querySelector(sel);
+    const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+    const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+    const nfCoord = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 5, maximumFractionDigits: 6 });
+    const dtFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    function escapeHtml(str){ return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+    function parsePtNumber(v){ if(v===null||v===undefined) return NaN; const s=String(v).trim(); if(!s) return NaN; const normalized=s.replace(/\./g,'').replace(',', '.'); const n=Number(normalized); return Number.isFinite(n)?n:NaN; }
+    function haversineMeters(lat1,lon1,lat2,lon2){ const R=6371000; const toRad=(d)=>d*Math.PI/180; const dLat=toRad(lat2-lat1); const dLon=toRad(lon2-lon1); const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2; const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); return R*c; }
+
+    /********* Splash *********/
+    const splash = $('#splash'); const splashBar=$('#splashBar'); const splashStep=$('#splashStep');
+    function runSplash(){ let p=0; const steps=['Carregando módulos…','Lendo dados (IDs e KM)…','Obtendo GPS…','Preparando câmera e HUD…']; const t=setInterval(()=>{ p=Math.min(100,p+Math.random()*22); splashBar.style.width=p+'%'; const idx=Math.min(steps.length-1,Math.floor(p/25)); splashStep.textContent=steps[idx]; if(p>=100){ clearInterval(t); setTimeout(()=>{ splash.style.display='none'; },850);} },380); }
+
+    /********* Estado *********/
+    let dataset=[]; // { id, lat, lon, endereco? }
+    let kmdb=[];    // { rodovia?, km, lat, lon }
+    let lastPosition=null; let lastSorted=[]; let currentId=null; let watchingId=null;
+    let lastSpeed=null; let lastFixTs=null; let lastFixLat=null; let lastFixLon=null;
+
+    // vídeo/HUD
+    let videoEl, canvasEl, ctx, mediaStream=null, rec=null, chunks=[];
+
+    // mapa
+    let map=null, marker=null;
+
+    // store (ocorrências)
+    let store = JSON.parse(localStorage.getItem('nox_inspecao_video_v1')||'[]'); // {seq,id,status,note,ts,lat,lon,km}
+
+    /********* CSV loaders *********/
+    async function loadCSV(path, opts){ const resp=await fetch(path,{cache:'no-store'}); if(!resp.ok) throw 0; const text=await resp.text(); const parsed=Papa.parse(text,{header:true,delimiter:';',skipEmptyLines:'greedy',dynamicTyping:false}); if(parsed.errors && parsed.errors.length){ throw new Error(parsed.errors[0].message||'Falha CSV'); } return parsed; }
+
+    async function carregarDados(){
+      // IDs
+      const idPaths=['./dados.csv','./Dados_Completos_Grupo_2_all.csv']; let ok=false; for(const p of idPaths){ try{ const parsed=await loadCSV(p); const fields=(parsed.meta && parsed.meta.fields)?parsed.meta.fields:[]; const pick=(c)=>{ const lc=fields.map(f=>f?String(f).toLowerCase().trim():''); for(const x of c){ const i=lc.indexOf(x); if(i>=0) return fields[i]; } return null; };
+        const latKey=pick(['latitude','lat']); const lonKey=pick(['longitude','lon','long']); const idKey=(()=>{ const lc=fields.map(f=>f?String(f).toLowerCase().trim():''); let i=lc.indexOf('id do nox'); if(i>=0) return fields[i]; i=lc.indexOf('idnox'); if(i>=0) return fields[i]; i=lc.indexOf('id'); if(i>=0) return fields[i]; return null; })(); const endKey=pick(['endereco','endereço']); if(!latKey||!lonKey||!idKey) throw new Error('Colunas latitude/longitude/ID não encontradas.'); const out=[]; for(const row of parsed.data){ const lat=parsePtNumber(row[latKey]); const lon=parsePtNumber(row[lonKey]); const rawId=row[idKey]; if(!Number.isFinite(lat)||!Number.isFinite(lon)) continue; if(lat===0&&lon===0) continue; if(lat<-90||lat>90) continue; if(lon<-180||lon>180) continue; out.push({ id:(rawId===undefined||rawId===null||String(rawId).trim()==='')?'Sem ID':String(rawId).trim(), lat, lon, endereco:endKey? String(row[endKey]??'').trim():undefined }); } dataset=out; ok=true; break; }catch(_){ } }
+      if(!ok){ dataset=[]; }
+
+      // KM (eixos): aceitar km_eixos.csv (exportável do MQV/SNV) com colunas: km;lat;lon;rodovia
+      const kmPaths=['./km_eixos.csv','./eixos.csv']; let ok2=false; for(const p of kmPaths){ try{ const parsed=await loadCSV(p); const fields=(parsed.meta && parsed.meta.fields)?parsed.meta.fields:[]; const pick=(c)=>{ const lc=fields.map(f=>f?String(f).toLowerCase().trim():''); for(const x of c){ const i=lc.indexOf(x); if(i>=0) return fields[i]; } return null; };
+        const kmK=pick(['km','quilometro','quilômetro']); const latK=pick(['latitude','lat']); const lonK=pick(['longitude','lon','long']); const rodK=pick(['rodovia','br','via']);
+        if(!kmK||!latK||!lonK){ throw new Error('km/lat/lon não encontrados'); }
+        const out=[]; for(const row of parsed.data){ const kmv=parsePtNumber(row[kmK]); const lat=parsePtNumber(row[latK]); const lon=parsePtNumber(row[lonK]); if(!Number.isFinite(kmv)||!Number.isFinite(lat)||!Number.isFinite(lon)) continue; out.push({ km:kmv, lat, lon, rodovia: row[rodK] ? String(row[rodK]).trim(): undefined }); }
+        kmdb=out; ok2=true; break; }catch(_){ }
+      }
+      atualizarListStatus(); render();
+    }
+
+    /********* GPS *********/
+    function startGPS(){ if(!('geolocation' in navigator)){ setStatus('GPS não suportado', true); return; } setStatus('Aguardando GPS…'); try{ if(watchingId!==null) navigator.geolocation.clearWatch(watchingId); watchingId=navigator.geolocation.watchPosition((pos)=>{ const {latitude,longitude,accuracy,speed} = pos.coords; lastPosition={lat:latitude,lon:longitude,acc:accuracy,spd:speed}; $('#latVal').textContent=nfCoord.format(latitude); $('#lonVal').textContent=nfCoord.format(longitude); $('#accVal').textContent=nf0.format(accuracy)+' m';
+        // velocidade: usar do GPS se válido; senão, calcular
+        let spd = Number.isFinite(speed)? speed : null; const now=Date.now(); if(!Number.isFinite(spd) && lastFixTs && lastFixLat && lastFixLon){ const dt=(now-lastFixTs)/1000; if(dt>0){ const d=haversineMeters(lastFixLat,lastFixLon,latitude,longitude); spd=d/dt; } }
+        lastFixTs=now; lastFixLat=latitude; lastFixLon=longitude; lastSpeed=spd; $('#spdVal').textContent=Number.isFinite(spd)? (nf1.format(spd*3.6)+' km/h') : '—';
+        setStatus((dataset.length>0)? 'Pronto' : 'Carregando dados…'); render(); }, (error)=>{ let msg='Falha ao obter localização'; if(error && typeof error.code!=='undefined'){ switch(error.code){ case error.PERMISSION_DENIED: msg='Permissão negada'; break; case error.POSITION_UNAVAILABLE: msg='Indisponível'; break; case error.TIMEOUT: msg='Tempo esgotado'; break; } } setStatus(msg, true); }, { enableHighAccuracy:true, maximumAge:0, timeout:15000 }); }catch(err){ setStatus('Falha ao obter localização: '+(err.message||'Erro desconhecido'), true); } }
+
+    /********* Mapa *********/
+    function initMap(){ if(map) return; map = L.map('map'); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '' }).addTo(map); const p=[-23.2237,-45.9009]; map.setView(p, 13); marker=L.marker(p).addTo(map); }
+    function updateMap(lat, lon){ initMap(); const p=[lat,lon]; marker.setLatLng(p); map.setView(p, Math.max(15, map.getZoom())); }
+
+    /********* HUD (vídeo com overlay) *********/
+    async function initVideo(){ videoEl=$('#cam'); canvasEl=$('#hud'); ctx=canvasEl.getContext('2d'); try{ mediaStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: {ideal:'environment'} }, audio:false }); }catch(err){ alert('Não foi possível acessar a câmera: '+(err.message||err)); return; }
+      videoEl.srcObject=mediaStream; await videoEl.play(); resizeCanvas(); drawHUD(); }
+
+    function resizeCanvas(){ const r=videoEl.getBoundingClientRect(); canvasEl.width = Math.floor(r.width*devicePixelRatio); canvasEl.height = Math.floor(r.height*devicePixelRatio); }
+    window.addEventListener('resize', resizeCanvas);
+
+    function nearestKm(lat, lon){ if(!kmdb || kmdb.length===0) return null; let best=null; let bd=Infinity; for(const k of kmdb){ const d=haversineMeters(lat,lon,k.lat,k.lon); if(d<bd){ bd=d; best=k; } } return best? { km:best.km, rodovia:best.rodovia, dist:bd }: null; }
+
+    function drawHUD(){ if(!ctx||!videoEl) return; const w=canvasEl.width, h=canvasEl.height; ctx.clearRect(0,0,w,h);
+      // desenhar vídeo no canvas
+      try{ ctx.drawImage(videoEl, 0, 0, w, h); }catch{}
+      // overlay
+      ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+      const pad=12; ctx.font='700 14px system-ui, Segoe UI, Roboto, Arial'; ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(8,8, 260, 90); ctx.fillStyle='#fff';
+      const now = new Date(); const dh = dtFmt.format(now);
+      const lat = lastPosition?.lat, lon=lastPosition?.lon, spd=lastSpeed; const id=currentId||'—';
+      let kmInfo='—'; if(lastPosition){ const k=nearestKm(lastPosition.lat,lastPosition.lon); if(k){ kmInfo=(k.rodovia? (k.rodovia+' '):'') + 'km ' + k.km.toFixed(3) + ` (${nf0.format(k.dist)} m)`; } }
+      ctx.fillText('ID atual: '+id, pad+10, 28);
+      ctx.fillText('KM (SNV/MQV): '+ kmInfo, pad+10, 48);
+      ctx.fillText('Pos: '+ (lastPosition? `${nfCoord.format(lat)}, ${nfCoord.format(lon)}`:'—'), pad+10, 68);
+      ctx.fillText('Vel: '+ (Number.isFinite(spd)? nf1.format(spd*3.6)+' km/h':'—') +' · '+ dh, pad+10, 88);
+      ctx.restore();
+      requestAnimationFrame(drawHUD);
+    }
+
+    /********* Gravação *********/
+    function startRec(){ if(rec){ return; } if(!canvasEl){ alert('Câmera não iniciada.'); return; } const stream = canvasEl.captureStream(30); try{ rec = new MediaRecorder(stream, { mimeType:'video/webm;codecs=vp9' }); }catch(_){ try{ rec = new MediaRecorder(stream, { mimeType:'video/webm;codecs=vp8' }); }catch(err){ alert('Recorder indisponível: '+(err.message||err)); return; } }
+      chunks=[]; rec.ondataavailable=(e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+      rec.onstop=()=>{ const blob = new Blob(chunks, {type: rec.mimeType || 'video/webm'}); const url = URL.createObjectURL(blob); const a=$('#dlVideo'); a.href=url; a.hidden=false; $('#shareVideo').hidden=false; $('#shareVideo').onclick=()=>{ if(navigator.canShare && navigator.canShare({ files:[ new File([blob], 'video_relatorio.webm', {type:blob.type}) ] })){ const f = new File([blob], 'video_relatorio.webm', {type:blob.type}); const header = buildHeader(); navigator.share({ files:[f], title:'Vídeo-relatório NOX', text: header }).catch(()=>{}); } else { openWA(buildHeader()+'(Anexe o vídeo em seguida)'); } };
+      };
+      rec.start(500); $('#btnRec').textContent='⏸ Pausar'; $('#btnStop').disabled=false; $('#btnRec').dataset.state='rec'; }
+
+    function toggleRec(){ if(!rec){ startRec(); return; } if(rec.state==='recording'){ rec.pause(); $('#btnRec').textContent='▶ Continuar'; } else if(rec.state==='paused'){ rec.resume(); $('#btnRec').textContent='⏸ Pausar'; } }
+    function stopRec(){ if(rec){ rec.stop(); rec=null; $('#btnRec').textContent='● Iniciar gravação'; $('#btnStop').disabled=true; } }
+
+    /********* Render *********/
+    function render(){ const listEl=$('#topList'); listEl.innerHTML=''; const qty = Math.max(1, Math.min( Number($('#qtySelect')?.value || 10), 9999 )); $('#fabQty').textContent=String(qty);
+      if(!lastPosition && dataset.length===0){ $('#listStatus').textContent='Carregando dados e GPS…'; $('#listStatus').className='status'; return; } if(!lastPosition){ $('#listStatus').textContent='Aguardando GPS…'; $('#listStatus').className='status'; return; } if(dataset.length===0){ $('#listStatus').textContent='Carregando dados…'; $('#listStatus').className='status'; return; }
+      const {lat,lon}=lastPosition; lastSorted=dataset.map(p=>({ id:p.id, lat:p.lat, lon:p.lon, endereco:p.endereco, d:haversineMeters(lat,lon,p.lat,p.lon) })).sort((a,b)=>a.d-b.d);
+      const toShow=lastSorted.slice(0, qty); if(toShow.length===0){ $('#listStatus').textContent='Nenhum ponto válido.'; $('#listStatus').className='status err'; return; }
+      currentId = toShow[0].id; $('#currentId').textContent = currentId;
+      for(const item of toShow){ const li=document.createElement('li'); const row=document.createElement('div'); row.className='item-line'; const idSpan=document.createElement('span'); idSpan.className='id'; idSpan.innerHTML=escapeHtml(item.id); row.appendChild(idSpan); li.appendChild(row); li.addEventListener('click',()=>{ currentId=item.id; $('#currentId').textContent=currentId; }); listEl.appendChild(li); }
+      $('#listStatus').textContent=''; $('#listStatus').className='status'; renderTable(); if(map && lastPosition){ updateMap(lastPosition.lat,lastPosition.lon); }
+    }
+
+    function setStatus(msg,isError=false){ const el=$('#statusVal'); if(!el) return; el.textContent=msg; el.className='status'+(isError?' err':''); }
+    function atualizarListStatus(){ const el=$('#listStatus'); if(!el) return; if(dataset.length===0){ el.textContent='Carregando dados…'; el.className='status'; } else { el.textContent='Aguardando GPS…'; el.className='status'; } }
+
+    /********* Store/tabela *********/
+    function addOccurrence({id,status,note,tag}){ const ts = new Date(); const pos = lastPosition? {lat:lastPosition.lat, lon:lastPosition.lon}: {lat:null, lon:null}; const kmn = (lastPosition? nearestKm(lastPosition.lat,lastPosition.lon): null); const rec = { seq: store.length+1, id:String(id), status:String(status||'-'), note:String(note||'').trim(), ts: ts.toISOString(), lat: pos.lat, lon: pos.lon, km: kmn? kmn.km : null, rodovia: kmn? kmn.rodovia: null, tag: tag||'' }; store.push(rec); persist(); renderTable(); }
+    function persist(){ localStorage.setItem('nox_inspecao_video_v1', JSON.stringify(store)); }
+    function removeOccurrence(idx){ store.splice(idx,1); persist(); renderTable(); }
+    function clearAll(){ if(!confirm('Limpar todos os registros da inspeção?')) return; store=[]; persist(); renderTable(); }
+
+    function renderTable(){ const onlyNC = $('#chkNC').checked; const tbody = $('#occTable tbody'); tbody.innerHTML=''; const rows = store.map((rec,idx)=>({rec,idx})).filter(x=> !onlyNC || (x.rec.status && x.rec.status!=='OK'));
+      rows.forEach(({rec,idx})=>{ const tr=document.createElement('tr'); const tdSel=document.createElement('td'); const cb=document.createElement('input'); cb.type='checkbox'; cb.dataset.idx=String(idx); tdSel.appendChild(cb); const tdSeq=document.createElement('td'); tdSeq.textContent=String(rec.seq);
+        const tdId=document.createElement('td'); tdId.textContent=rec.id; const tdSt=document.createElement('td'); tdSt.textContent=rec.status; const tdNote=document.createElement('td'); tdNote.textContent=rec.note||'—'; const tdTs=document.createElement('td'); try{ tdTs.textContent = dtFmt.format(new Date(rec.ts)); }catch{ tdTs.textContent='—'; }
+        const tdPos=document.createElement('td'); tdPos.textContent = (Number.isFinite(rec.lat)&&Number.isFinite(rec.lon))? `${nfCoord.format(rec.lat)}, ${nfCoord.format(rec.lon)}`:'—'; const tdKm=document.createElement('td'); tdKm.textContent = (rec.km!=null? `km ${rec.km.toFixed(3)}`:'—') + (rec.rodovia? ` (${rec.rodovia})`: ''); const tdTag=document.createElement('td'); tdTag.textContent=rec.tag||'';
+        const tdRm=document.createElement('td'); const btn=document.createElement('button'); btn.className='btn'; btn.textContent='Remover'; btn.addEventListener('click', ()=> removeOccurrence(idx)); tdRm.appendChild(btn);
+        tr.appendChild(tdSel); tr.appendChild(tdSeq); tr.appendChild(tdId); tr.appendChild(tdSt); tr.appendChild(tdNote); tr.appendChild(tdTs); tr.appendChild(tdPos); tr.appendChild(tdKm); tr.appendChild(tdTag); tr.appendChild(tdRm); tbody.appendChild(tr); }); $('#chkAll').checked=false; }
+
+    /********* WhatsApp *********/
+    function buildHeader(){ const now=new Date(); const dataHora=dtFmt.format(now); const {lat,lon}=lastPosition||{lat:0,lon:0}; const k= lastPosition? nearestKm(lastPosition.lat,lastPosition.lon): null; const ref = k? ((k.rodovia? (k.rodovia+' '):'')+ 'km '+k.km.toFixed(3)): '—'; return `--- VÍDEO-RELATÓRIO DE INSPEÇÃO (NOX) ---\nData/Hora: ${dataHora}\nLocalização atual: ${nfCoord.format(lat)}, ${nfCoord.format(lon)}\nReferência (SNV/MQV): ${ref}\n-----------------------\n`; }
+    function openWA(msg){ const url='https://wa.me/?text='+encodeURIComponent(msg); window.open(url,'_blank','noopener,noreferrer'); }
+    function sendWhatsTop(){ if(!lastSorted || lastSorted.length===0 || !lastPosition){ alert('Aguardando atualização do Top.'); return; } const qty = Math.max(1, Math.min( Number($('#qtySelect')?.value || 10), 9999 )); const items = lastSorted.slice(0, qty); let msg = buildHeader(); msg += `Top ${qty} IDs próximos:\n`; items.forEach((item, idx)=>{ msg += `${idx+1}. ${String(item.id).replace(/\s+/g,' ').trim()}\n`; }); openWA(msg); }
+    function sendWhatsFromSelection(all=false){ if(store.length===0){ alert('Nenhuma ocorrência registrada.'); return; } const header = buildHeader(); let rows=[]; if(all){ rows = store; } else { const cbs = Array.from(document.querySelectorAll('#occTable tbody input[type="checkbox"]')); const idxs = cbs.filter(cb=>cb.checked).map(cb=>Number(cb.dataset.idx)); if(idxs.length===0){ alert('Selecione ao menos um item.'); return; } rows = idxs.map(i=>store[i]); }
+      let msg = header + 'Ocorrências registradas:\n'; rows.forEach((r)=>{ const dh = (()=>{ try{return dtFmt.format(new Date(r.ts));}catch{return '—';} })(); const pos = (Number.isFinite(r.lat)&&Number.isFinite(r.lon))? `${nfCoord.format(r.lat)}, ${nfCoord.format(r.lon)}`:'—'; const note = r.note? ` — obs: ${r.note}`:''; const km = (r.km!=null? `km ${r.km.toFixed(3)} ${(r.rodovia||'')}`:'—'); msg += `${r.seq}. ${r.id} — ${r.status}${note} — ${pos} — ${km} — ${dh}\n`; }); openWA(msg); }
+
+    /********* Export CSV *********/
+    function exportCSV(){ if(store.length===0){ alert('Nada para exportar.'); return; } const head='Seq;ID;Status;Obs;DataHora;Latitude;Longitude;KM;Rodovia;Tag\n'; const lines=store.map(r=>[r.seq,r.id,(r.status||'').replaceAll(';',','),(r.note||'').replaceAll(';',','),(()=>{try{return dtFmt.format(new Date(r.ts));}catch{return r.ts;}})(), r.lat??'', r.lon??'', r.km??'', r.rodovia??'', r.tag??''].join(';')).join('\n'); const blob = new Blob([head+lines], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='inspecao_video_nox.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{document.body.removeChild(a); URL.revokeObjectURL(url);},300); }
+
+    /********* Bind UI *********/
+    function bindUI(){ runSplash();
+      $('#qtySelect').addEventListener('change', render);
+      $('#fabWhats').addEventListener('click', sendWhatsTop);
+      $('#btnSendSel').addEventListener('click', ()=>sendWhatsFromSelection(false));
+      $('#btnSendAll').addEventListener('click', ()=>sendWhatsFromSelection(true));
+      $('#btnCSV').addEventListener('click', exportCSV);
+      $('#btnClear').addEventListener('click', clearAll);
+      $('#btnStreet').addEventListener('click', ()=>{ if(!lastPosition){ alert('Aguardando GPS…'); return; } const {lat,lon}=lastPosition; window.open(`https://maps.google.com/?cbll=${lat},${lon}&layer=c`,'_blank','noopener,noreferrer'); });
+      $('#btnMaps').addEventListener('click', ()=>{ if(!lastPosition){ alert('Aguardando GPS…'); return; } const {lat,lon}=lastPosition; window.open(`https://www.google.com/maps?q=${lat},${lon}`,'_blank','noopener,noreferrer'); });
+      // marcações
+      document.querySelectorAll('[data-flag]').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(!currentId){ alert('Aguardando lista de IDs…'); return; } addOccurrence({id: currentId, status: btn.dataset.flag, note: $('#noteInput').value, tag:'flag'}); $('#noteInput').value=''; }); });
+      $('#btnAnotar').addEventListener('click', ()=>{ if(!currentId){ alert('Aguardando lista de IDs…'); return; } const note=$('#noteInput').value||''; addOccurrence({id: currentId, status: note? 'ANOTAÇÃO':'OK', note, tag:'nota'}); $('#noteInput').value=''; });
+      $('#btnSelect').addEventListener('click', ()=>{ const q=($('#searchId').value||'').trim(); if(!q){ alert('Digite um ID.'); return; } currentId=q; $('#currentId').textContent=currentId; });
+      $('#chkAll').addEventListener('change', (e)=>{ const c= e.target.checked; document.querySelectorAll('#occTable tbody input[type="checkbox"]').forEach(cb=>cb.checked=c); });
+      $('#chkNC').addEventListener('change', renderTable);
+      // vídeo/HUD/REC
+      $('#btnRec').addEventListener('click', toggleRec);
+      $('#btnStop').addEventListener('click', stopRec);
+      $('#btnMark').addEventListener('click', ()=>{ if(!currentId){ alert('Aguardando lista de IDs…'); return; } addOccurrence({id: currentId, status:'EVENTO', note:'marcado durante vídeo', tag:'event'}); });
+    }
+
+    /********* Boot *********/
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      bindUI();
+      await carregarDados();
+      startGPS();
+      initMap();
+      await initVideo();
+    });
+  </script>
+</body>
+</html>
