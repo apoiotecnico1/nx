@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Top 10 IDs Próximos</title>
+<style>
+  :root{--bg:#0b1220;--fg:#fff;--muted:#94a3b8;--card:#0f172a;--border:#1f2937;--accent:#22c55e}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--fg);font-family:system-ui;display:flex;flex-direction:column}
+  header{padding:18px 12px;text-align:center;font-weight:1000;letter-spacing:.02em;background:linear-gradient(90deg,#0ea5e9,#5eead4);color:#fff}
+  main{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px}
+  .card{width:min(820px,96vw);background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
+  h2{margin:4px 0 10px 0;font-size:1.02rem;color:#e2e8f0}
+  #gps,#msg{color:var(--muted);text-align:center}
+  ol{margin:0;padding-left:18px;display:grid;gap:6px}
+  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace}
+  .pill{display:inline-block;margin-top:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#ffffff10}
+  footer{padding:10px;text-align:center;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+  <header>Top 10 IDs Próximos</header>
+  <main>
+    <div id="gps">GPS: —</div>
+    <div id="msg"></div>
+    <section class="card">
+      <h2>Atualiza automaticamente conforme você se desloca</h2>
+      <ol id="topList"></ol>
+      <div id="hint" class="pill">Aguardando GPS/dados…</div>
+    </section>
+  </main>
+  <footer>Abra via HTTPS para o GPS funcionar corretamente. Mantendo a tela aberta, a lista se atualiza sozinha.</footer>
+
+<script>
+let dataset=[], grid={}, GRID=0.0005; // ~55 m
+let lastPos=null;
+const nf0=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
+
+function setMsg(s){ document.getElementById('msg').textContent=s||''; }
+function setGPS(s){ document.getElementById('gps').textContent=s||'GPS: —'; }
+function parsePt(v){ if(v==null) return NaN; return Number(String(v).trim().replace(/\./g,'').replace(',', '.')); }
+function hav(a,b,c,d){ const R=6371000; const x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180; const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2; return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u)); }
+function key(lat,lon){ return Math.floor(lon/GRID)+','+Math.floor(lat/GRID); }
+
+function topN(lat,lon,n=10){ if(!dataset.length) return []; const arr=dataset.map(p=>({id:p.id, d:hav(lat,lon,p.lat,p.lon)})); arr.sort((a,b)=>a.d-b.d); return arr.slice(0, Math.min(n,arr.length)); }
+
+async function loadCSV(){ try{
+  if(location.protocol==='file:'){ setMsg('⚠ Abra este arquivo via HTTPS (GitHub Pages) — file:// bloqueia recursos.'); }
+  let resp = await fetch('dados.csv'); if(!resp.ok){ resp = await fetch('Dados_Completos_Grupo_2_all.csv'); }
+  if(!resp.ok){ setMsg('❌ Não encontrei dados.csv'); return; }
+  const text = await resp.text();
+  const rows = text.split(/\r?\n/).filter(l=>l.trim()!=='').map(l=>l.split(';'));
+  if(rows.length<2){ setMsg('❌ CSV vazio'); return; }
+  const head = rows.shift().map(h=>h.trim().toLowerCase());
+  const iLat=head.indexOf('latitude'); const iLon=head.indexOf('longitude');
+  let iId=head.indexOf('id do nox'); if(iId<0) iId=head.indexOf('idnox'); if(iId<0) iId=head.indexOf('id');
+  if(iLat<0||iLon<0||iId<0){ setMsg('❌ CSV precisa de colunas: ID do NOX, Latitude, Longitude'); return; }
+  dataset = rows.map(r=>({ id:String(r[iId]||'').trim()||'Sem ID', lat:parsePt(r[iLat]), lon:parsePt(r[iLon]) }))
+                .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  grid={}; dataset.forEach((p,i)=>{ const k=key(p.lat,p.lon); (grid[k]||(grid[k]=[])).push(i); });
+  document.getElementById('hint').textContent='Pronto.';
+  render();
+}catch(e){ setMsg('❌ Erro ao carregar CSV'); }
+}
+
+function render(){ const list=document.getElementById('topList'); list.innerHTML=''; if(!lastPos||!dataset.length){ document.getElementById('hint').textContent='Aguardando GPS/dados…'; return; }
+  const items = topN(lastPos.lat,lastPos.lon,10); document.getElementById('hint').textContent = items.length? '' : 'Sem pontos nesta área';
+  items.forEach((o,i)=>{ const li=document.createElement('li'); li.textContent=`${String(i+1).padStart(2,'0')}. ${o.id} — ${nf0.format(o.d)} m`; list.appendChild(li); });
+}
+
+function startGPS(){ if(!('geolocation' in navigator)){ setMsg('❌ Dispositivo sem geolocalização'); return; }
+  navigator.geolocation.watchPosition(pos=>{
+    lastPos={lat:pos.coords.latitude, lon:pos.coords.longitude};
+    setGPS(`Lat ${pos.coords.latitude.toFixed(6)}, Lon ${pos.coords.longitude.toFixed(6)}`);
+    render();
+  }, err=>{ setMsg('❌ Permita o acesso ao GPS no navegador'); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+}
+
+loadCSV(); startGPS();
+</script>
+</body>
+</html>
