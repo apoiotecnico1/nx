@@ -7,14 +7,13 @@
 <meta name="theme-color" content="#ffffff" />
 <style>
   :root{
-    /* Paleta clara moderna */
-    --brand:#2563eb;      /* azul */
-    --brand2:#22c55e;     /* ciano/verde */
+    --brand:#2563eb; --brand2:#22c55e;
     --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e5e7eb; --surface:#ffffff;
     --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
     --btn:#22c55e;
     --focus:#3b82f6; --shadow:0 6px 20px rgba(15,23,42,.06); --radius:14px;
-    --pill:#e8f7ef; /* pill do mais próximo */
+    --pill:#e8f7ef;
+    --tip:#0ea5e9; --tip-bg:#e6f4ff; /* banner de dicas */
   }
 
   *,*::before,*::after{box-sizing:border-box}
@@ -40,8 +39,26 @@
     font-size:clamp(1rem,1.9vw,1.15rem);
   }
 
+  /* Banner de dica aleatória */
+  #tipWrap{
+    max-width:1100px;margin:10px auto 0;padding:0 16px;
+  }
+  .tip{
+    display:flex;align-items:center;gap:10px;
+    background:var(--tip-bg); color:#0b3a64;
+    border:1px solid #d6e9ff; border-radius:12px;
+    padding:10px 12px; box-shadow:var(--shadow);
+    font-weight:700; letter-spacing:.01em
+  }
+  .tip .icon{color:var(--tip); font-size:1.1rem}
+  .tip .close{
+    margin-left:auto; background:transparent; border:0; color:#0b3a64; cursor:pointer;
+    font-weight:900; padding:6px 8px; border-radius:8px;
+  }
+  .tip .close:hover{background:#dff1ff}
+
   /* Status (GPS + diagnóstico) */
-  #status{max-width:1100px;margin:14px auto 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 16px}
+  #status{max-width:1100px;margin:10px auto 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 16px}
   .chip,.badge{
     display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);
     background:var(--surface);color:var(--muted);padding:10px 12px;border-radius:999px;font-weight:800;box-shadow:var(--shadow)
@@ -104,7 +121,7 @@
   .id-label{font-weight:800}
   .dist{
     color:#4b5563; opacity:.8;
-    font-size:.8rem;     /* ainda menor e discreta */
+    font-size:.8rem;     /* menor e discreta */
     min-width:64px; text-align:right;
   }
 
@@ -122,7 +139,7 @@
   @media (max-width:900px){ .col-4,.col-8{grid-column:1/-1} }
 
   /* Acessibilidade */
-  button:focus-visible, select:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+  button:focus-visible, select:focus-visible, .tip .close:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
 </style>
 </head>
 <body>
@@ -133,6 +150,9 @@
     <h1>ID GPS</h1>
   </div>
 </header>
+
+<!-- Dica aleatória de segurança -->
+<div id="tipWrap" aria-live="polite"></div>
 
 <!-- Status: GPS + diagnóstico -->
 <div id="status" role="region" aria-label="Status do sistema">
@@ -187,12 +207,27 @@
 /* ===== Config do chip (visual) ===== */
 const ACC_GREEN=10, ACC_YELLOW=25;
 
+/* ===== Dicas de segurança (random a cada abertura) ===== */
+const SAFETY_TIPS = [
+  "Use colete refletivo e mantenha-se contra o fluxo ao caminhar no acostamento.",
+  "Sinalize a área com cones antes de iniciar qualquer intervenção.",
+  "Evite distrações: celular só fora da pista e longe do tráfego.",
+  "Antes de abrir o capô do veículo de apoio, posicione-o em área segura.",
+  "Cheque o vento e chuva: visibilidade reduzida exige reforço de sinalização.",
+  "Nunca trabalhe sozinho em ponto de risco: peça apoio por rádio/telefone.",
+  "Ilumine a área e verifique aterramento ao manusear elétrica/iluminação.",
+  "Pare em local seguro: 100 m antes do ponto, quando possível.",
+  "Mantenha contato com a Supervisão: informe início e término da atividade.",
+  "Use luvas e EPIs adequados ao manusear cabos e caixas de passagem."
+];
+
 /* ===== Estado ===== */
 let dataset=[];           // {id,lat,lon}
 let lastPos=null;         // {lat,lon,acc,spd,head,ts}
 let lastRender=0;
 
 /* ===== Elements ===== */
+const tipWrap=document.getElementById('tipWrap');
 const gpsChip=document.getElementById('gpsChip');
 const gpsText=document.getElementById('gpsText');
 const diag=document.getElementById('diag');
@@ -203,6 +238,18 @@ const listEl=document.getElementById('list');
 
 /* ===== Helpers ===== */
 function showDiag(msg){ diag.style.display='inline-flex'; diag.textContent=msg; }
+function randomTip(){
+  const t = SAFETY_TIPS[Math.floor(Math.random()*SAFETY_TIPS.length)];
+  tipWrap.innerHTML = `
+    <div class="tip" role="status">
+      <span class="icon">⚠️</span>
+      <span>${t}</span>
+      <button class="close" aria-label="Fechar dica" onclick="this.parentElement.remove()">✕</button>
+    </div>`;
+  // desaparece após 7s (se não fechar manualmente)
+  setTimeout(()=>{ const el=tipWrap.querySelector('.tip'); if(el) el.remove(); }, 7000);
+}
+
 function normalizeStr(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_ ]+/g,' ').replace(/\s+/g,' '); }
 function findColumnIndex(headers, candidates){
   const map=headers.map(h=>normalizeStr(h));
@@ -356,7 +403,11 @@ btnSend.addEventListener('click', ()=>{
 qtySel.addEventListener('change', ()=> render(true));
 
 /* ===== Boot ===== */
-(function boot(){ loadCSV(); startGPS(); })();
+(function boot(){
+  randomTip();          // mostra dica de segurança ao abrir
+  loadCSV();
+  startGPS();
+})();
 </script>
 </body>
 </html>
