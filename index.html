@@ -4,106 +4,139 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ID GPS · IDs Próximos</title>
-<meta name="theme-color" content="#0b1220" />
+<meta name="theme-color" content="#ffffff" />
 <style>
   :root{
-    --bg:#0a0f1a; --fg:#ffffff; --muted:#a9b1c7;
-    --card:#0f172a; --surface:#0b1327; --border:#1f2937;
-    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-    --btn:#22c55e; --btn-alt:#0ea5e9;
-    --focus:#93c5fd;
+    /* Paleta clara moderna */
+    --bg:#f8fafc;         /* fundo */
+    --fg:#0f172a;         /* texto principal */
+    --muted:#475569;      /* texto secundário */
+    --border:#e5e7eb;     /* linhas sutis */
+    --surface:#ffffff;    /* cartões/branco puro */
+
+    /* Acentos e estados */
+    --accent:#2563eb;     /* azul vivo */
+    --accent-2:#22c55e;   /* verde vivo */
+    --ok:#16a34a;         /* OK chip */
+    --warn:#f59e0b;       /* Ajustando chip */
+    --bad:#ef4444;        /* Fraco chip */
+
+    /* Botões */
+    --btn:#22c55e;        /* WhatsApp vibe */
+    --btn-alt:#2563eb;    /* localização sem cadastro */
+
+    /* Tipografia e foco */
+    --focus:#3b82f6;
+    --radius:14px;
+    --shadow:0 6px 20px rgba(15,23,42,.06);
   }
 
-  html,body{margin:0;height:100%}
+  /* Reset básico */
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{height:100%}
   body{
-    background:var(--bg);color:var(--fg);
+    margin:0;background:var(--bg);color:var(--fg);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-    line-height:1.35;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   }
 
-  /* Header minimalíssimo */
-  header{padding:10px 16px}
-  .brand{max-width:1100px;margin:0 auto}
-  .brand h1{margin:0;font-size:1rem;font-weight:900;letter-spacing:.08em;color:var(--muted)}
+  /* Cabeçalho minimal (discreto e futurista) */
+  header{padding:14px 16px}
+  .brand{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:10px}
+  .dot-logo{width:10px;height:10px;border-radius:50%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .brand h1{
+    margin:0; font-size:clamp(.95rem,1.6vw,1.05rem);
+    font-weight:900; letter-spacing:.08em; color:var(--muted);
+  }
 
-  /* Barra de status (diagnóstico + GPS) */
+  /* Barra de status (GPS + diagnóstico) */
   #status{
-    max-width:1100px;margin:6px auto 0;display:flex;gap:12px;align-items:center;
-    padding:0 16px;flex-wrap:wrap
+    max-width:1100px;margin:6px auto 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    padding:0 16px
   }
-  .badge{
-    display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);
-    background:var(--surface);color:#c0caf5;padding:8px 12px;border-radius:999px;font-weight:800
-  }
-  .chip{
+  .chip,.badge{
     display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);
-    background:var(--surface);color:var(--muted);padding:10px 12px;
-    border-radius:999px;font-weight:800;user-select:none
+    background:var(--surface); color:var(--muted);
+    padding:10px 12px; border-radius:999px; font-weight:800; box-shadow:var(--shadow)
   }
   .dot{width:10px;height:10px;border-radius:50%}
-  .ok .dot{background:var(--ok)}     .ok{color:#cde8d4}
-  .warn .dot{background:var(--warn)} .warn{color:#ffe7bf}
-  .bad .dot{background:var(--bad)}   .bad{color:#ffc7c7}
+  .ok .dot{background:var(--ok)}     .ok{color:#065f46}
+  .warn .dot{background:var(--warn)} .warn{color:#7c4a00}
+  .bad .dot{background:var(--bad)}   .bad{color:#7f1d1d}
+  .badge{color:#1e293b}
 
-  /* Conteúdo */
-  main{max-width:1100px;margin:10px auto;display:grid;gap:16px;padding:0 16px}
+  /* Conteúdo em “cards” (portal) */
+  main{max-width:1100px;margin:12px auto 24px;display:grid;gap:16px;padding:0 16px}
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
   .card{
-    background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; box-shadow:var(--shadow)
   }
-  .card h2{margin:0 0 12px 0;font-size:1.1rem;color:#e2e8f0}
+  .card h2{margin:0 0 12px 0;font-size:clamp(1.05rem,1.8vw,1.1rem);color:#0b1220}
 
-  /* Ações */
+  /* Ações (botões e opções) */
   .actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   button{
-    padding:14px 18px;font-size:1.02rem;font-weight:900;border:0;border-radius:12px;color:#0b1220;
-    cursor:pointer;background:var(--btn);transition:filter .15s ease
+    padding:14px 18px;font-size:clamp(.95rem,1.6vw,1.02rem);font-weight:900;border:0;border-radius:12px;color:#ffffff;
+    cursor:pointer; transition:transform .08s ease, filter .15s ease; box-shadow:var(--shadow)
   }
-  button:hover{filter:brightness(1.05)}
-  button:disabled{opacity:.5;cursor:not-allowed}
+  button:active{transform:translateY(1px)}
+  button:hover{filter:brightness(1.03)}
+  button:disabled{opacity:.55;cursor:not-allowed;filter:none}
   #btnSend{background:var(--btn)}
-  #btnSendNew{background:var(--btn-alt);color:#fff}
+  #btnSendNew{background:var(--btn-alt)}
 
   .opt{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.95rem}
-  .opt input{width:16px;height:16px;accent-color:#0ea5e9}
+  .opt input{width:16px;height:16px;accent-color:var(--accent)}
 
   /* Campo observação */
   .field{display:flex;flex-direction:column;gap:6px}
-  .field label{color:#cbd5e1;font-weight:700;font-size:.95rem}
+  .field label{color:#0f172a;font-weight:800;font-size:.95rem}
   .field input{
-    padding:12px;border-radius:10px;border:1px solid var(--border);
-    background:#0c1430;color:#e5e7eb;font-size:1rem;outline:2px solid transparent
+    padding:12px;border-radius:12px;border:1px solid var(--border); background:#ffffff;color:#0f172a;font-size:1rem;
+    outline:2px solid transparent; transition:outline-color .15s ease, box-shadow .15s ease
   }
-  .field input:focus{outline:2px solid var(--focus);outline-offset:2px}
+  .field input:focus{outline:2px solid var(--focus); outline-offset:2px; box-shadow:0 0 0 4px rgba(59,130,246,.15)}
 
   /* Lista / Skeleton */
   ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
   li{
-    line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;
-    border:1px solid var(--border);border-radius:10px;padding:12px;background:#0d1429;
-    font-size:1.02rem;color:#e6edf7
+    line-height:1.3;font-family:ui-monospace,Consolas,Menlo,monospace;
+    border:1px solid var(--border);border-radius:12px;padding:12px;background:#ffffff;
+    font-size:1.03rem;color:#0b1220
   }
-  li:first-child{border-color:#34d399}
-  .skeleton{height:46px;border-radius:10px;background:
-    linear-gradient(90deg,#111827 25%,#1f2937 40%,#111827 60%);
-    background-size:200% 100%; animation:shimmer 1.1s infinite}
+  li:first-child{border-color:#22c55e} /* destaque do mais próximo */
+  .skeleton{
+    height:48px;border-radius:12px;background:
+      linear-gradient(90deg,#e5e7eb 25%,#f1f5f9 40%,#e5e7eb 60%);
+    background-size:200% 100%; animation:shimmer 1.1s infinite
+  }
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-  /* Layout responsivo */
+  /* Grid responsivo */
   .col-4{grid-column:span 4}
   .col-8{grid-column:span 8}
   @media (max-width:900px){ .col-4,.col-8{grid-column:1/-1} }
+
+  /* Acessibilidade: foco visível para botões */
+  button:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
 </style>
 </head>
 <body>
 
-<header><div class="brand"><h1>ID GPS</h1></div></header>
+<header>
+  <div class="brand">
+    <span class="dot-logo" aria-hidden="true"></span>
+    <h1>ID GPS</h1>
+  </div>
+</header>
 
-<div id="status">
+<!-- Status: chip de GPS + diagnóstico -->
+<div id="status" role="region" aria-label="Status do sistema">
   <div id="gpsChip" class="chip bad" aria-live="polite">
     <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
   </div>
-  <div id="diag" class="badge" style="display:none">—</div>
+  <div id="diag" class="badge" style="display:none" aria-live="polite">—</div>
 </div>
 
 <main>
@@ -111,6 +144,7 @@
     <!-- Ações -->
     <section class="card col-4" aria-label="Ações">
       <h2>Ações</h2>
+
       <div class="actions" style="margin-bottom:12px">
         <button id="btnSend"    disabled>Enviar ID por WhatsApp</button>
         <label class="opt" title="Adicionar links do Google Maps no texto enviado">
@@ -119,8 +153,8 @@
         </label>
       </div>
 
-      <div class="field" style="margin-top:4px">
-        <label for="obs">Observação (para ponto sem cadastro, opcional)</label>
+      <div class="field" style="margin-top:6px">
+        <label for="obs">Observação (ponto sem cadastro, opcional)</label>
         <input id="obs" type="text" placeholder="Ex.: Poste novo no canteiro central" />
       </div>
       <div class="actions" style="margin-top:10px">
@@ -143,7 +177,7 @@
 </main>
 
 <script>
-/* ========= Config visual do chip ========= */
+/* ========= Config do chip (visual apenas) ========= */
 const ACC_GREEN = 10;   // m
 const ACC_YELLOW = 25;  // m
 
@@ -162,7 +196,10 @@ const listEl    = document.getElementById('list');
 const obsInput  = document.getElementById('obs');
 const btnSendNew= document.getElementById('btnSendNew');
 
-function showDiag(msg){ diag.style.display='inline-flex'; diag.textContent=msg; }
+function showDiag(msg){
+  diag.style.display='inline-flex';
+  diag.textContent=msg;
+}
 function normalizeStr(s){
   return String(s||'').trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // remove acentos
@@ -204,12 +241,13 @@ function updateGpsChip(){
   else { gpsChip.className='chip bad';  gpsText.textContent=`GPS: fraco (${fmtAcc(acc)})`; }
 }
 function updateButtons(){
-  const ok=(dataset.length && lastPos);
-  btnSend.disabled = !ok;
-  btnSendNew.disabled = !lastPos; // para enviar sem cadastro basta ter posição
+  const basePronta = dataset.length>0;
+  const posPronta  = !!lastPos;
+  btnSend.disabled    = !(basePronta && posPronta);
+  btnSendNew.disabled = !posPronta;   // ponto sem cadastro: só precisa da posição
 }
 
-/* ========= CSV Loader (robusto) ========= */
+/* ========= Carregamento robusto do CSV ========= */
 async function loadCSV(){
   try{
     let resp = await fetch('dados.csv?v='+Date.now(), {cache:'no-store'});
@@ -217,19 +255,19 @@ async function loadCSV(){
     if(!resp.ok){ showDiag('❌ CSV não encontrado'); return; }
 
     let text=await resp.text();
-    if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+    if(text.charCodeAt(0)===0xFEFF) text=text.slice(1); // remove BOM
     const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
     if(lines.length<2){ showDiag('❌ CSV vazio'); return; }
 
     const head=lines.shift().split(';');
-    const iId = findColumnIndex(head,['id do nox','idnox','id']);
-    const iLat= findColumnIndex(head,['latitude','lat']);
-    const iLon= findColumnIndex(head,['longitude','lon','long']);
+    const iId  = findColumnIndex(head,['id do nox','idnox','id']);
+    const iLat = findColumnIndex(head,['latitude','lat']);
+    const iLon = findColumnIndex(head,['longitude','lon','long']);
     if(iId<0||iLat<0||iLon<0){ showDiag('❌ Cabeçalho inválido (ID/Latitude/Longitude)'); return; }
 
     dataset=lines.map(l=>{
       const r=l.split(';');
-      return {id:String(r[iId]||'').trim(),lat:parsePt(r[iLat]),lon:parsePt(r[iLon])};
+      return {id:String(r[iId]||'').trim(), lat:parsePt(r[iLat]), lon:parsePt(r[iLon])};
     }).filter(p=>p.id && Number.isFinite(p.lat) && Number.isFinite(p.lon));
     if(!dataset.length){ showDiag('❌ Sem pontos válidos no CSV'); return; }
 
@@ -237,10 +275,11 @@ async function loadCSV(){
   }catch(e){ showDiag('❌ Erro ao carregar CSV'); }
 }
 
-/* ========= Render ========= */
+/* ========= Render da lista ========= */
 function render(force=false){
-  const now=performance.now(); if(!force && now-lastRender<160) return; lastRender=now;
-  listEl.innerHTML=''; if(!lastPos||!dataset.length) return;
+  const now=performance.now(); if(!force && now-lastRender<150) return; lastRender=now;
+  listEl.innerHTML='';
+  if(!lastPos||!dataset.length) return;
 
   const items=nearestN(lastPos.lat,lastPos.lon,10);
   if(!items.length){ listEl.innerHTML='<li>—</li>'; return; }
@@ -249,19 +288,21 @@ function render(force=false){
   items.forEach((o,idx)=>{
     const li=document.createElement('li');
     li.textContent=o.id;
-    if(idx===0) li.style.borderColor='#34d399';
+    if(idx===0) li.style.borderColor='#22c55e';
     frag.appendChild(li);
   });
   listEl.appendChild(frag);
 }
 
-/* ========= GPS (prompt + watch) ========= */
+/* ========= GPS (prompt inicial + watch) ========= */
 function startGPS(){
   if(!('geolocation' in navigator)){ showDiag('❌ Sem geolocalização no navegador'); return; }
+
   navigator.geolocation.getCurrentPosition(
     pos=>{
       lastPos={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
       updateGpsChip(); updateButtons(); render(true);
+
       navigator.geolocation.watchPosition(p=>{
         lastPos={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy};
         updateGpsChip(); updateButtons(); render();
@@ -274,17 +315,21 @@ function startGPS(){
 
 /* ========= Envio WhatsApp ========= */
 btnSend.addEventListener('click', ()=>{
-  if(!lastPos || !dataset.length) return;
+  if(!lastPos) return;
   const items=nearestN(lastPos.lat,lastPos.lon,10); if(!items.length) return;
 
   const accTxt=fmtAcc(lastPos.acc);
   let tx=`GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
+
+  // Padrão: somente IDs
   items.forEach(o=> tx+=`ID: ${o.id}\n`);
 
+  // Opcional: links de mapa
   if(chkMaps.checked){
     tx+='\nLinks de mapa:\n';
     items.forEach(o=> tx+=`ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`);
   }
+
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
@@ -293,6 +338,7 @@ btnSendNew.addEventListener('click', ()=>{
   if(!lastPos) return;
   const accTxt=fmtAcc(lastPos.acc);
   const obs=obsInput.value.trim();
+
   let tx=`PONTO SEM CADASTRO\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}`;
   if(obs) tx+=`\nObservação: ${obs}`;
   if(chkMaps.checked){
