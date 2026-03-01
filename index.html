@@ -91,9 +91,12 @@
   li{
     line-height:1.3;font-family:ui-monospace,Consolas,Menlo,monospace;
     border:1px solid var(--border);border-radius:12px;padding:12px;background:#ffffff;
-    font-size:1.03rem;color:#0b1220
+    font-size:1.03rem;color:#0b1220; display:flex; justify-content:space-between; gap:12px
   }
   li:first-child{border-color:var(--btn)} /* mais próximo */
+  .id-label{font-weight:800}
+  .dist{color:#374151; opacity:.9}
+
   .skeleton{
     height:48px;border-radius:12px;background:
       linear-gradient(90deg,#e5e7eb 25%,#f1f5f9 40%,#e5e7eb 60%);
@@ -198,11 +201,26 @@ function findColumnIndex(headers, candidates){
 }
 function parsePt(v){ if(v==null) return NaN; const s=String(v).trim(); return /,\d{1,}$/.test(s)? Number(s.replace(/\./g,'').replace(',','.')): Number(s); }
 function hav(a,b,c,d){ const R=6371000,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180; const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2; return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u)); }
-function nearestN(lat,lon,n=10){ if(!dataset.length) return []; const arr=dataset.map(p=>({id:p.id,lat:p.lat,lon:p.lon,d:hav(lat,lon,p.lat,p.lon)})); arr.sort((a,b)=>a.d-b.d); return arr.slice(0, Math.min(n,arr.length)); }
+function nearestN(lat,lon,n=10){
+  if(!dataset.length) return [];
+  const arr=dataset.map(p=>({id:p.id,lat:p.lat,lon:p.lon,d:hav(lat,lon,p.lat,p.lon)}));
+  arr.sort((a,b)=>a.d-b.d);
+  return arr.slice(0, Math.min(n,arr.length));
+}
 function fmtAcc(a){ return (a==null||!Number.isFinite(a))?'—':('±'+Math.round(a)+' m'); }
 function fmtHead(h){ return (h==null||!Number.isFinite(h))? null : Math.round(h)+'°'; }
 function fmtSpd(s){ return (s==null||!Number.isFinite(s))? null : Math.round(s*3.6)+' km/h'; }
 function nowBR(){ return new Date().toLocaleString('pt-BR'); }
+
+/* Distância para texto: até 999 m → “Xm”; ≥ 1000 → “X km Y m” */
+function fmtDist(m){
+  if(!(Number.isFinite(m))) return '—';
+  const d = Math.round(m);
+  if(d < 1000) return `${d} m`;
+  const km = Math.floor(d / 1000);
+  const rm = d % 1000;
+  return rm ? `${km} km ${rm} m` : `${km} km`;
+}
 
 /* ===== Chip e botões ===== */
 function updateGpsChip(){
@@ -251,7 +269,21 @@ function render(force=false){
   if(!items.length){ listEl.innerHTML='<li>—</li>'; return; }
 
   const frag=document.createDocumentFragment();
-  items.forEach((o,idx)=>{ const li=document.createElement('li'); li.textContent=o.id; if(idx===0) li.style.borderColor='var(--btn)'; frag.appendChild(li); });
+  items.forEach((o,idx)=>{
+    const li=document.createElement('li');
+    const left = document.createElement('span');
+    left.className='id-label';
+    left.textContent=o.id;
+
+    const right = document.createElement('span');
+    right.className='dist';
+    right.textContent = fmtDist(o.d);
+
+    if(idx===0) li.style.borderColor='var(--btn)';
+    li.appendChild(left);
+    li.appendChild(right);
+    frag.appendChild(li);
+  });
   listEl.appendChild(frag);
 }
 
@@ -284,8 +316,10 @@ btnSend.addEventListener('click', ()=>{
   let tx=`${nowBR()}\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}`;
   if(spd) tx+=` · Vel ${spd}`; if(head) tx+=` · Curso ${head}`; tx+='\n';
 
+  // Envio padrão: somente IDs (sem distâncias)
   items.forEach(o=> tx+=`ID: ${o.id}\n`);
 
+  // Opcional: links de mapa
   if(chkMaps.checked){
     tx+='\nLinks de mapa:\n';
     items.forEach(o=> tx+=`ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`);
