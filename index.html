@@ -6,117 +6,131 @@
 <title>IDs</title>
 <meta name="theme-color" content="#0b1220" />
 <style>
-  :root{--bg:#0b1220;--fg:#fff;--muted:#9ca3b8;--wa:#25D366;--card:#0f172a;--border:#1f2937;--accent:#0ea5e9}
+  :root{
+    --bg:#0b1220; --fg:#fff; --muted:#9ca3b8;
+    --card:#0f172a; --border:#1f2937; --accent:#0ea5e9; --wa:#25D366;
+    --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
+  }
   html,body{margin:0;height:100%}
-  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;display:flex;flex-direction:column}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:14px
+  }
 
-  /* Topbar minimal */
-  .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:linear-gradient(90deg,var(--accent),#5eead4);color:#fff}
-  .iconbtn{appearance:none;background:#ffffff22;border:0;color:#fff;padding:8px 10px;border-radius:10px;font-weight:800;cursor:pointer}
-  .iconbtn:active{transform:translateY(1px)}
+  /* Chip de status do GPS */
+  .chip{
+    display:inline-flex; align-items:center; gap:10px;
+    border:1px solid var(--border); background:var(--card); color:var(--muted);
+    padding:10px 12px; border-radius:999px; font-weight:800; user-select:none
+  }
+  .dot{width:10px; height:10px; border-radius:50%}
+  .ok .dot{ background:var(--ok) }     .ok{ color:#cde8d4 }
+  .warn .dot{ background:var(--warn) } .warn{ color:#ffe7bf }
+  .bad .dot{ background:var(--bad) }   .bad{ color:#ffc7c7 }
 
-  /* Painel Histórico (recolhível) */
-  #histPanel{max-height:0;overflow:hidden;transition:max-height .25s ease;background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-  #histWrap{max-width:min(860px,96vw);margin:0 auto;padding:10px 12px}
-  .histHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-  .histList{display:grid;gap:6px;margin:0;padding:0;list-style:none}
-  .histItem{display:flex;align-items:center;justify-content:space-between;border:1px dashed var(--border);border-radius:10px;padding:8px 10px}
-  .muted{color:var(--muted);font-size:.92rem}
+  /* Lista de IDs */
+  ul{margin:0; padding:0; list-style:none; display:grid; gap:6px; width:min(840px,94vw)}
+  li{
+    line-height:1.25; font-family:ui-monospace,Consolas,Menlo,monospace;
+    border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--card);
+  }
+  /* Destaca o mais próximo */
+  li:first-child{ border-color:#34d399 }
 
-  /* Conteúdo principal */
-  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
-  ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;width:min(840px,94vw)}
-  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--card);cursor:pointer;user-select:none}
-  li:active{transform:translateY(1px)}
-  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-  button.send{padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;background:var(--wa);cursor:pointer}
-  button.send:disabled{opacity:.5;cursor:not-allowed}
-
-  /* Feedback flutuante opcional */
-  #toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#16a34a;color:#fff;padding:8px 12px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  /* Botão Enviar (só aparece com GPS verde) */
+  #btnWA{
+    display:none; padding:14px 18px; font-size:1rem; font-weight:800;
+    border:0; border-radius:12px; color:#fff; background:var(--wa); cursor:pointer
+  }
 </style>
 </head>
 <body>
-  <!-- Topo: Histórico -->
-  <div class="topbar" role="banner">
-    <div style="font-weight:1000;letter-spacing:.02em">IDs</div>
-    <div class="row">
-      <button id="btnHist" class="iconbtn" title="Histórico" aria-controls="histPanel" aria-expanded="false">🕘 Histórico</button>
-    </div>
+
+  <!-- Status de GPS (verde/amarelo/vermelho) -->
+  <div id="gpsChip" class="chip bad" aria-live="polite">
+    <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
   </div>
 
-  <!-- Painel Histórico -->
-  <div id="histPanel" role="region" aria-label="Histórico de IDs">
-    <div id="histWrap">
-      <div class="histHead">
-        <div style="font-weight:800">Histórico de IDs</div>
-        <div class="row">
-          <button id="btnClearHist" class="iconbtn" title="Limpar histórico">🧹 Limpar</button>
-          <button id="btnCloseHist" class="iconbtn" title="Fechar">✖</button>
-        </div>
-      </div>
-      <ul id="histList" class="histList"></ul>
-      <div id="histHint" class="muted">Toque em um ID (na lista abaixo) para registrá‑lo aqui. Enviar também salva todos.</div>
-    </div>
-  </div>
+  <!-- Lista dos 10 IDs mais próximos -->
+  <ul id="list" aria-live="polite" aria-label="IDs mais próximos"></ul>
 
-  <!-- Conteúdo principal: lista + enviar -->
-  <main>
-    <ul id="list" aria-live="polite" aria-label="IDs mais próximos"></ul>
-    <div class="row">
-      <button id="btnWA" class="send" disabled aria-disabled="true">Enviar</button>
-    </div>
-  </main>
-
-  <div id="toast" role="status" aria-live="polite"></div>
+  <!-- Enviar (só aparece quando GPS estiver VERDE/OK) -->
+  <button id="btnWA">Enviar</button>
 
 <script>
-/* ================= Estado e Utilitários ================= */
-let dataset = [];         // {id, lat, lon}
-let lastPos = null;       // {lat, lon}
-let lastRender = 0;       // throttle
-const HIST_KEY = 'nox_ids_hist_v1';
-let hist = [];            // {id, ts}
+/* =================== Configuração =================== */
+/* Precisão: só VERDE (OK) habilita o envio */
+const ACC_GREEN = 10;   // metros (precisão máxima)
+const ACC_YELLOW = 25;  // metros (intermediário)
 
-const dtFmt = new Intl.DateTimeFormat('pt-BR',{dateStyle:'short', timeStyle:'short'});
-function parsePt(v){ if(v==null) return NaN; return Number(String(v).trim().replace(/\./g,'').replace(',', '.')); }
-function hav(a,b,c,d){ const R=6371000, x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180; const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2; return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u)); }
-function nearestN(lat, lon, n=10){ if(!dataset.length) return []; const arr = dataset.map(p => ({id:p.id, d:hav(lat,lon,p.lat,p.lon)})); arr.sort((a,b)=> a.d - b.d); return arr.slice(0, Math.min(n, arr.length)); }
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; setTimeout(()=>{t.style.opacity='0';},1200); }
+/* =================== Estado =================== */
+let dataset = [];          // {id, lat, lon}
+let lastPos = null;        // {lat, lon, acc}
+let lastRender = 0;        // throttle
 
-/* ================= Histórico ================= */
-function loadHist(){ try{ hist = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }catch{ hist = []; } }
-function saveHist(){ try{ const slim = hist.slice(-30); localStorage.setItem(HIST_KEY, JSON.stringify(slim)); hist = slim; }catch{} }
-function addHist(id){ if(!id) return; hist.push({ id:String(id), ts:new Date().toISOString() }); saveHist(); renderHist(); toast('ID salvo'); }
-function addManyHist(ids){ if(!ids||!ids.length) return; const now=new Date().toISOString(); ids.forEach(id=> hist.push({ id:String(id), ts:now })); saveHist(); renderHist(); toast('IDs salvos'); }
-function renderHist(){ const ul=document.getElementById('histList'); ul.innerHTML=''; if(!hist.length){ document.getElementById('histHint').style.display='block'; return; } document.getElementById('histHint').style.display='none'; const view=hist.slice(-30); view.forEach(item=>{ const li=document.createElement('li'); li.className='histItem'; const left=document.createElement('div'); left.textContent=item.id; const right=document.createElement('div'); right.className='muted'; right.textContent=dtFmt.format(new Date(item.ts)); li.appendChild(left); li.appendChild(right); ul.appendChild(li); }); }
-function clearHist(){ hist=[]; saveHist(); renderHist(); toast('Histórico limpo'); }
+/* =================== Utilitários =================== */
+function parsePt(v){
+  if(v==null) return NaN;
+  return Number(String(v).trim().replace(/\./g,'').replace(',', '.'));
+}
+function hav(a,b,c,d){
+  const R=6371000, x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180;
+  const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u));
+}
+function nearestN(lat, lon, n=10){
+  if(!dataset.length) return [];
+  const arr = dataset.map(p=>({id:p.id, d:hav(lat,lon,p.lat,p.lon)}));
+  arr.sort((a,b)=>a.d-b.d);
+  return arr.slice(0, Math.min(n, arr.length));
+}
 
-/* ================= UI Histórico ================= */
-const panel=document.getElementById('histPanel');
-const btnHist=document.getElementById('btnHist');
-const btnCloseHist=document.getElementById('btnCloseHist');
-const btnClearHist=document.getElementById('btnClearHist');
-function openHist(){ panel.style.maxHeight='42vh'; btnHist.setAttribute('aria-expanded','true'); }
-function closeHist(){ panel.style.maxHeight='0'; btnHist.setAttribute('aria-expanded','false'); }
-btnHist.addEventListener('click', openHist);
-btnCloseHist.addEventListener('click', closeHist);
-btnClearHist.addEventListener('click', ()=>{ if(confirm('Limpar histórico?')) clearHist(); });
+/* =================== UI: GPS Chip & Botão =================== */
+const gpsChip = document.getElementById('gpsChip');
+const gpsText = document.getElementById('gpsText');
+const btnWA   = document.getElementById('btnWA');
 
-/* ================= Carregamento CSV (sem senha) ================= */
+function updateGpsChip(){
+  if(!lastPos || lastPos.acc==null){
+    gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
+    gpsText.textContent = 'GPS: buscando…';
+    btnWA.style.display = 'none';
+    return;
+  }
+  const acc = Math.round(lastPos.acc);
+  if(acc <= ACC_GREEN){
+    gpsChip.classList.remove('warn','bad'); gpsChip.classList.add('ok');
+    gpsText.textContent = `GPS: OK (±${acc} m)`;
+    // Só aparece se há base e posição
+    btnWA.style.display = (dataset.length && lastPos) ? 'inline-block' : 'none';
+  }else if(acc <= ACC_YELLOW){
+    gpsChip.classList.remove('ok','bad'); gpsChip.classList.add('warn');
+    gpsText.textContent = `GPS: ajustando (±${acc} m)`;
+    btnWA.style.display = 'none';
+  }else{
+    gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
+    gpsText.textContent = `GPS: fraco (±${acc} m)`;
+    btnWA.style.display = 'none';
+  }
+}
+
+/* =================== Carregar CSV =================== */
 async function loadCSV(){
   try{
     // 1) dados.csv; 2) Dados_Completos_Grupo_2_all.csv
     let resp = await fetch('dados.csv', {cache:'no-store'});
     if(!resp.ok){ resp = await fetch('Dados_Completos_Grupo_2_all.csv', {cache:'no-store'}); }
     if(!resp.ok) return;
+
     const text = await resp.text();
-    const lines = text.split(/\r?\n/).filter(l => l.trim()!=='');
+    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
     if(lines.length<2) return;
+
     const head = lines.shift().split(';').map(h=>h.trim().toLowerCase());
     const iLat = head.indexOf('latitude');
     const iLon = head.indexOf('longitude');
-    let iId = head.indexOf('id do nox'); if(iId<0) iId = head.indexOf('idnox'); if(iId<0) iId = head.indexOf('id');
+    let iId = head.indexOf('id do nox'); if(iId<0) iId=head.indexOf('idnox'); if(iId<0) iId=head.indexOf('id');
     if(iLat<0 || iLon<0 || iId<0) return;
 
     dataset = lines.map(l=>{
@@ -124,23 +138,59 @@ async function loadCSV(){
       return { id:String(r[iId]||'').trim()||'Sem ID', lat:parsePt(r[iLat]), lon:parsePt(r[iLon]) };
     }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
 
-    maybeEnableSend();
     render(true);
+    updateGpsChip();
   }catch(e){ /* silencioso */ }
 }
 
-/* ================= Render e GPS ================= */
-function render(force=false){ const now=performance.now(); if(!force && now-lastRender<200) return; lastRender=now; const ul=document.getElementById('list'); ul.innerHTML=''; if(!lastPos||!dataset.length) return; const items=nearestN(lastPos.lat,lastPos.lon,10); items.forEach((o,idx)=>{ const li=document.createElement('li'); li.textContent=o.id; li.addEventListener('click', ()=> addHist(o.id)); if(idx===0) li.style.borderColor='#34d399'; ul.appendChild(li); }); }
-function startGPS(){ if(!('geolocation' in navigator)) return; navigator.geolocation.watchPosition(pos=>{ lastPos={lat:pos.coords.latitude, lon:pos.coords.longitude}; maybeEnableSend(); render(); }, ()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000}); }
+/* =================== Render da lista =================== */
+function render(force=false){
+  const now = performance.now();
+  if(!force && now - lastRender < 200) return;
+  lastRender = now;
 
-/* ================= Envio WhatsApp ================= */
-const btnWA=document.getElementById('btnWA');
-function maybeEnableSend(){ const ok=(dataset.length && lastPos); btnWA.disabled=!ok; btnWA.setAttribute('aria-disabled', String(!ok)); }
-btnWA.addEventListener('click', ()=>{ if(!lastPos||!dataset.length) return; const items=nearestN(lastPos.lat,lastPos.lon,10); if(!items.length) return; addManyHist(items.map(x=>x.id)); let tx=''; items.forEach(o=> tx += `ID: ${o.id}\n`); window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank'); });
+  const ul = document.getElementById('list');
+  ul.innerHTML = '';
+  if(!lastPos || !dataset.length) return;
 
-/* ================= Boot ================= */
-function boot(){ loadHist(); renderHist(); loadCSV(); startGPS(); }
-boot();
+  const items = nearestN(lastPos.lat, lastPos.lon, 10);
+  items.forEach((o, idx)=>{
+    const li = document.createElement('li');
+    li.textContent = o.id;
+    if(idx===0) li.style.borderColor = '#34d399'; // destaque do mais próximo
+    ul.appendChild(li);
+  });
+}
+
+/* =================== GPS =================== */
+function startGPS(){
+  if(!('geolocation' in navigator)) return;
+  navigator.geolocation.watchPosition(pos=>{
+    lastPos = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy };
+    render();
+    updateGpsChip();  // controla o “verde/OK” e o botão
+  }, ()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+}
+
+/* =================== Envio WhatsApp =================== */
+btnWA.addEventListener('click', ()=>{
+  if(!lastPos || !dataset.length) return;
+  // Somente é exibido quando “verde”, mas validamos por segurança
+  if(!(gpsChip.classList.contains('ok'))) return;
+
+  const items = nearestN(lastPos.lat, lastPos.lon, 10);
+  if(!items.length) return;
+
+  let tx = '';
+  items.forEach(o => tx += `ID: ${o.id}\n`); // apenas “ID: xxxx”
+  window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
+});
+
+/* =================== Boot =================== */
+(function boot(){
+  loadCSV();
+  startGPS();
+})();
 </script>
 </body>
 </html>
