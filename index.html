@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IDs</title>
+<meta name="theme-color" content="#0b1220" />
+<style>
+  :root{
+    --bg:#0b1220; --fg:#fff; --muted:#9ca3b8; --wa:#25D366;
+    --card:#0f172a; --border:#1f2937; --accent:#0ea5e9;
+  }
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+    display:flex;flex-direction:column;gap:0
+  }
+  /* Topbar */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 10px;background:linear-gradient(90deg,var(--accent),#5eead4);color:#fff
+  }
+  .iconbtn{
+    appearance:none;background:#ffffff22;border:0;color:#fff;
+    padding:8px 10px;border-radius:10px;font-weight:800;cursor:pointer
+  }
+  .iconbtn:active{transform:translateY(1px)}
+  /* Painel Histórico */
+  #histPanel{max-height:0;overflow:hidden;transition:max-height .25s ease;background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  #histWrap{max-width:min(860px,96vw);margin:0 auto;padding:10px 12px}
+  .histHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .histList{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+  .histItem{display:flex;align-items:center;justify-content:space-between;border:1px dashed var(--border);border-radius:10px;padding:8px 10px}
+  .muted{color:var(--muted);font-size:.92rem}
+  /* Principal */
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
+  ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;width:min(840px,94vw)}
+  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--card);cursor:pointer;user-select:none}
+  li:active{transform:translateY(1px)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  button.send{padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;background:var(--wa);cursor:pointer}
+  button.send:disabled{opacity:.5;cursor:not-allowed}
+  /* Tela de senha */
+  #lock{position:fixed;inset:0;background:linear-gradient(160deg,#0b1220 0%, #111827 40%, #0b1220 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:50}
+  #lockCard{width:min(420px,92vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+  #lock h1{margin:0 0 8px;font-size:1.05rem}
+  .inprow{display:flex;gap:8px}
+  input[type=password]{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0b1220;color:#fff;font-weight:700}
+  #unlock{padding:12px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:900;cursor:pointer}
+  #lockMsg{color:#f87171;font-size:.92rem;min-height:1.2em}
+</style>
+</head>
+<body>
+
+<!-- Topo: Histórico -->
+<div class="topbar">
+  <div style="font-weight:1000;letter-spacing:.02em">IDs</div>
+  <div class="row">
+    <button id="btnHist" class="iconbtn" title="Histórico">🕘 Histórico</button>
+  </div>
+</div>
+
+<!-- Painel Histórico -->
+<div id="histPanel">
+  <div id="histWrap">
+    <div class="histHead">
+      <div style="font-weight:800">Histórico de IDs</div>
+      <div class="row">
+        <button id="btnClearHist" class="iconbtn" title="Limpar histórico">🧹 Limpar</button>
+        <button id="btnCloseHist" class="iconbtn" title="Fechar">✖</button>
+      </div>
+    </div>
+    <ul id="histList" class="histList"></ul>
+    <div id="histHint" class="muted">Toque em um ID para registrá‑lo. Ao enviar, todos os IDs listados também são salvos aqui.</div>
+  </div>
+</div>
+
+<!-- Conteúdo -->
+<main>
+  <ul id="list"></ul>
+  <div class="row">
+    <button id="btnWA" class="send" disabled>Enviar</button>
+  </div>
+</main>
+
+<!-- Tela de Senha / Desbloqueio -->
+<div id="lock">
+  <div id="lockCard">
+    <h1>Desbloquear Base</h1>
+    <div class="muted" style="margin-bottom:8px">Digite a senha para carregar a base cifrada.</div>
+    <div class="inprow">
+      <input id="pass" type="password" placeholder="Senha da equipe" />
+      <button id="unlock">Desbloquear</button>
+    </div>
+    <div id="lockMsg"></div>
+    <div class="muted" style="margin-top:6px">Dica: se a base cifrada não estiver presente, o sistema tentará carregar <b>dados.csv</b> (modo aberto).</div>
+  </div>
+</div>
+
+<script>
+/* ================= Estado ================= */
+let dataset = [];         // {id, lat, lon}
+let lastPos = null;       // {lat, lon}
+let lastRender = 0;       // throttle
+const HIST_KEY = 'nox_ids_hist_v1';
+let hist = [];            // {id, ts}
+
+/* ================= Utils ================= */
+const nf0 = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
+const dtFmt = new Intl.DateTimeFormat('pt-BR',{dateStyle:'short', timeStyle:'short'});
+
+function parsePt(v){ if(v==null) return NaN; return Number(String(v).trim().replace(/\./g,'').replace(',', '.')); }
+function hav(a,b,c,d){ const R=6371000, x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180; const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2; return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u)); }
+function nearestN(lat, lon, n=10){ if(!dataset.length) return []; const arr = dataset.map(p => ({id:p.id, d:hav(lat,lon,p.lat,p.lon)})); arr.sort((a,b)=> a.d - b.d); return arr.slice(0, Math.min(n, arr.length)); }
+
+/* ================= Histórico ================= */
+function loadHist(){ try{ hist = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }catch{ hist = []; } }
+function saveHist(){ try{ const slim = hist.slice(-30); localStorage.setItem(HIST_KEY, JSON.stringify(slim)); hist = slim; }catch{} }
+function addHist(id){ if(!id) return; hist.push({ id:String(id), ts:new Date().toISOString() }); saveHist(); renderHist(); }
+function addManyHist(ids){ if(!ids||!ids.length) return; const now=new Date().toISOString(); ids.forEach(id=> hist.push({ id:String(id), ts:now })); saveHist(); renderHist(); }
+function renderHist(){ const ul=document.getElementById('histList'); ul.innerHTML=''; if(!hist.length){ document.getElementById('histHint').style.display='block'; return; } document.getElementById('histHint').style.display='none'; const view=hist.slice(-30); view.forEach(item=>{ const li=document.createElement('li'); li.className='histItem'; const left=document.createElement('div'); left.textContent=item.id; const right=document.createElement('div'); right.className='muted'; right.textContent=dtFmt.format(new Date(item.ts)); li.appendChild(left); li.appendChild(right); ul.appendChild(li); }); }
+function clearHist(){ hist=[]; saveHist(); renderHist(); }
+
+/* ================= UI Histórico ================= */
+const panel=document.getElementById('histPanel');
+function openHist(){ panel.style.maxHeight='42vh'; }
+function closeHist(){ panel.style.maxHeight='0'; }
+
+// Botões do histórico
+const btnHist=document.getElementById('btnHist');
+const btnCloseHist=document.getElementById('btnCloseHist');
+const btnClearHist=document.getElementById('btnClearHist');
+btnHist.addEventListener('click', openHist);
+btnCloseHist.addEventListener('click', closeHist);
+btnClearHist.addEventListener('click', ()=>{ if(confirm('Limpar histórico?')) clearHist(); });
+
+/* ================= Decriptação (WebCrypto) ================= */
+function b64toU8(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+async function deriveKey(pass, salt, iter){ const enc=new TextEncoder(); const base=await crypto.subtle.importKey('raw', enc.encode(pass), {name:'PBKDF2'}, false, ['deriveKey']); return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']); }
+
+async function loadEncrypted(pass){
+  const resp=await fetch('dados.enc.json', {cache:'no-store'});
+  if(!resp.ok) throw new Error('dados.enc.json não encontrado');
+  const j=await resp.json();
+  const iter=j.iter||150000; const salt=b64toU8(j.salt); const iv=b64toU8(j.iv); const key=await deriveKey(pass, salt, iter);
+  const ct=b64toU8(j.data); const tag=b64toU8(j.tag); const full=new Uint8Array(ct.length+tag.length); full.set(ct,0); full.set(tag,ct.length);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, full);
+  const csv=new TextDecoder().decode(new Uint8Array(plain));
+  return csv;
+}
+
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()!==''); if(lines.length<2) return [];
+  const head=lines.shift().split(';').map(h=>h.trim().toLowerCase());
+  const iLat=head.indexOf('latitude'); const iLon=head.indexOf('longitude'); let iId=head.indexOf('id do nox'); if(iId<0) iId=head.indexOf('idnox'); if(iId<0) iId=head.indexOf('id');
+  if(iLat<0||iLon<0||iId<0) return [];
+  return lines.map(l=>{ const r=l.split(';'); return { id:String(r[iId]||'').trim()||'Sem ID', lat:parsePt(r[iLat]), lon:parsePt(r[iLon]) }; }).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+}
+
+/* ================= Carregamento Base ================= */
+const lock=document.getElementById('lock');
+const lockMsg=document.getElementById('lockMsg');
+const passInp=document.getElementById('pass');
+const unlockBtn=document.getElementById('unlock');
+
+async function unlockFlow(){
+  lockMsg.textContent='';
+  const pass=passInp.value||'';
+  try{
+    // Tenta base cifrada
+    const csv = await loadEncrypted(pass);
+    dataset = parseCSV(csv);
+    if(!dataset.length) throw new Error('Base vazia/inválida');
+    lock.style.display='none';
+    maybeEnableSend(); render(true); startGPS();
+  }catch(e){
+    // Se não há base cifrada, tenta CSV aberto como fallback silencioso
+    try{
+      const r=await fetch('dados.csv');
+      if(!r.ok) throw 0; const text=await r.text();
+      dataset = parseCSV(text);
+      if(!dataset.length) throw 0;
+      lock.style.display='none';
+      maybeEnableSend(); render(true); startGPS();
+    }catch(_){ lockMsg.textContent='Senha incorreta ou base indisponível.'; }
+  }
+}
+
+unlockBtn.addEventListener('click', unlockFlow);
+passInp.addEventListener('keydown', (e)=>{ if(e.key==='Enter') unlockFlow(); });
+
+/* ================= Lista e Envio ================= */
+function render(force=false){ const now=performance.now(); if(!force && now-lastRender<250) return; lastRender=now; const ul=document.getElementById('list'); ul.innerHTML=''; if(!lastPos||!dataset.length) return; const items=nearestN(lastPos.lat,lastPos.lon,10); items.forEach((o,idx)=>{ const li=document.createElement('li'); li.textContent=o.id; li.addEventListener('click', ()=> addHist(o.id)); if(idx===0) li.style.borderColor='#34d399'; ul.appendChild(li); }); }
+
+function startGPS(){ if(!('geolocation' in navigator)) return; navigator.geolocation.watchPosition(pos=>{ lastPos={lat:pos.coords.latitude, lon:pos.coords.longitude}; maybeEnableSend(); render(); }, ()=>{}, {enableHighAccuracy:true, maximumAge:0, timeout:15000}); }
+
+const btnWA=document.getElementById('btnWA');
+function maybeEnableSend(){ btnWA.disabled = !(dataset.length && lastPos); }
+btnWA.addEventListener('click', ()=>{ if(!lastPos||!dataset.length) return; const items=nearestN(lastPos.lat,lastPos.lon,10); if(!items.length) return; addManyHist(items.map(x=>x.id)); let tx=''; items.forEach(o=> tx += `ID: ${o.id}\n`); window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank'); });
+
+/* ================= Boot ================= */
+function boot(){ loadHist(); renderHist(); /* Espera desbloqueio */ }
+boot();
+</script>
+</body>
+</html>
