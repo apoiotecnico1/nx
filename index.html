@@ -34,8 +34,10 @@
   li{
     line-height:1.25; font-family:ui-monospace,Consolas,Menlo,monospace;
     border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--card);
+    cursor:pointer; user-select:none
   }
   li:first-child{ border-color:#34d399 } /* destaque do mais próximo */
+  li:active{ transform:translateY(1px) }
 
   /* Botões */
   .row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
@@ -43,7 +45,8 @@
     padding:14px 18px; font-size:1rem; font-weight:800; border:0; border-radius:12px; color:#fff; cursor:pointer
   }
   #btnSend{ background:var(--wa) }
-  #btnMap{ background:#0ea5e9 }
+  #btnMapAll{ background:#0ea5e9 }
+  #btnMapYou{ background:#64748b } /* cinza-azulado */
   button:disabled{ opacity:.5; cursor:not-allowed }
 </style>
 </head>
@@ -59,14 +62,15 @@
 
   <!-- Ações -->
   <div class="row">
-    <button id="btnSend" disabled>Enviar</button>
-    <button id="btnMap" disabled>Gerar mapa + Enviar</button>
+    <button id="btnSend"   disabled>Enviar</button>
+    <button id="btnMapAll" disabled>Gerar mapa + Enviar</button>
+    <button id="btnMapYou" disabled>Mapa (você)</button>
   </div>
 
 <script>
-/* =================== Config (apenas visual do chip) =================== */
-const ACC_GREEN = 10;   // m (verde)
-const ACC_YELLOW = 25;  // m (amarelo)
+/* =================== Config (cores do chip) =================== */
+const ACC_GREEN = 10;   // m → verde
+const ACC_YELLOW = 25;  // m → amarelo
 
 /* =================== Estado =================== */
 let dataset = [];          // {id, lat, lon}
@@ -96,6 +100,7 @@ function fmtAcc(acc){
 /* =================== UI: GPS Chip =================== */
 const gpsChip = document.getElementById('gpsChip');
 const gpsText = document.getElementById('gpsText');
+
 function updateGpsChip(){
   if(!lastPos || lastPos.acc==null){
     gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
@@ -156,6 +161,11 @@ function render(force=false){
   items.forEach((o, idx)=>{
     const li = document.createElement('li');
     li.textContent = o.id;
+    // Clique em um ID → abre o Google Maps na coordenada do ID (técnico confere o local)
+    li.addEventListener('click', ()=>{
+      const url = `https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}`;
+      window.open(url, '_blank');
+    });
     if(idx===0) li.style.borderColor = '#34d399';
     ul.appendChild(li);
   });
@@ -173,16 +183,19 @@ function startGPS(){
 }
 
 /* =================== Envio WhatsApp =================== */
-const btnSend = document.getElementById('btnSend');
-const btnMap  = document.getElementById('btnMap');
+const btnSend   = document.getElementById('btnSend');
+const btnMapAll = document.getElementById('btnMapAll');
+const btnMapYou = document.getElementById('btnMapYou');
 
 function updateButtons(){
-  // Habilita botões somente quando há base e posição (NÃO trava por precisão)
+  // Habilita botões quando houver base + posição (NÃO bloqueia por precisão)
   const ok = (dataset.length && lastPos);
-  btnSend.disabled = !ok;
-  btnMap.disabled  = !ok;
+  btnSend.disabled   = !ok;
+  btnMapAll.disabled = !ok;
+  btnMapYou.disabled = !ok;
 }
 
+// Enviar (IDs + precisão/Lat/Lon)
 btnSend.addEventListener('click', ()=>{
   if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
@@ -190,22 +203,29 @@ btnSend.addEventListener('click', ()=>{
 
   const accTxt = fmtAcc(lastPos.acc);
   let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  items.forEach(o => tx += `ID: ${o.id}\n`); // apenas "ID: xxxx"
+  items.forEach(o => tx += `ID: ${o.id}\n`);
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
-btnMap.addEventListener('click', ()=>{
+// Gerar mapa + Enviar (links do Maps para cada ponto)
+btnMapAll.addEventListener('click', ()=>{
   if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
   if(!items.length) return;
 
   const accTxt = fmtAcc(lastPos.acc);
   let tx = `Mapa (pontos próximos)\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  // Para cada ponto, um link do Google Maps (abre pino do ponto)
   items.forEach(o => {
     tx += `ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`;
   });
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
+});
+
+// Mapa (você): abre o Google Maps na posição atual do técnico
+btnMapYou.addEventListener('click', ()=>{
+  if(!lastPos) return;
+  const url = `https://maps.google.com/?q=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}`;
+  window.open(url, '_blank');
 });
 
 /* =================== Boot =================== */
