@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ID Finder Ultra Simples</title>
+<style>
+ body{margin:0;background:#0b1220;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center}
+ #idBox{font-size:4rem;font-weight:900;margin-bottom:20px}
+ #gps{color:#9ca3af;margin-bottom:20px;font-size:1.1rem}
+ button{padding:20px 30px;font-size:1.4rem;font-weight:900;border:0;border-radius:14px;color:#fff;background:#25D366;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="idBox">ID: —</div>
+<div id="gps">GPS: —</div>
+<button id="btnWA">Enviar ID por WhatsApp</button>
+<script>
+let dataset=[],grid={},GRID=0.0005;
+let lastPos=null,target=null;
+
+function parsePt(v){if(!v)return NaN;return Number(String(v).trim().replace(/\./g,'').replace(',', '.'));}
+function hav(a,b,c,d){const R=6371000,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,u=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u));}
+function key(lat,lon){return Math.floor(lon/GRID)+','+Math.floor(lat/GRID);}    
+function nearest(lat,lon){let best=null,bd=1e12;const gx=Math.floor(lon/GRID),gy=Math.floor(lat/GRID);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const k=(gx+dx)+','+(gy+dy);if(!grid[k])continue;for(const i of grid[k]){const p=dataset[i];const d=hav(lat,lon,p.lat,p.lon);if(d<bd){bd=d;best=p;}}}return best&&bd<80?{pt:best,dist:bd}:null;}
+
+async function loadCSV(){try{const r=await fetch('dados.csv');const t=await r.text();const rows=t.split(/\r?\n/).map(l=>l.split(';'));const head=rows.shift();const ix={};head.forEach((h,i)=>ix[h.trim().toLowerCase()]=i);
+ if(ix['latitude']==null||ix['longitude']==null||ix['id do nox']==null)return;
+ dataset=rows.map(r=>({id:r[ix['id do nox']],lat:parsePt(r[ix['latitude']]),lon:parsePt(r[ix['longitude']])})).filter(p=>!isNaN(p.lat)&&!isNaN(p.lon));
+ grid={};dataset.forEach((p,i)=>{const k=key(p.lat,p.lon);(grid[k]||(grid[k]=[])).push(i);});}catch(e){}
+}
+
+function updateHUD(){if(!lastPos)return;const n=nearest(lastPos.lat,lastPos.lon);if(!n){document.getElementById('idBox').textContent='ID: —';return;}target=n;document.getElementById('idBox').textContent='ID: '+n.pt.id;document.getElementById('gps').textContent='Aprox: '+Math.round(n.dist)+' m';}
+
+if(navigator.geolocation){navigator.geolocation.watchPosition(p=>{lastPos={lat:p.coords.latitude,lon:p.coords.longitude};updateHUD();});}
+
+document.getElementById('btnWA').onclick=()=>{
+ if(!target){alert('Sem ID ainda...');return;}
+ const msg='ID encontrado: '+target.pt.id+' — aprox '+Math.round(target.dist)+' m';
+ const u='https://wa.me/?text='+encodeURIComponent(msg);
+ window.open(u,'_blank');
+};
+
+loadCSV();
+</script>
+</body>
+</html>
