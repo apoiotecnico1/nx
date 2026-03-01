@@ -16,28 +16,24 @@
   body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
 
   /* Header estilo portal */
-  header{
-    background:linear-gradient(90deg,var(--brand),var(--brand2));
-    padding:16px 18px
-  }
+  header{background:linear-gradient(90deg,var(--brand),var(--brand2));padding:16px 18px}
   .brand{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
   .brand h1{margin:0;font-size:1.2rem;font-weight:1000;letter-spacing:.02em}
   .brand small{opacity:.9;font-weight:700}
 
+  /* Barra de status (diagnóstico) */
+  #status{max-width:1100px;margin:10px auto 0;display:flex;gap:10px;align-items:center;padding:0 12px}
+  .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#0b1327;color:#c0caf5;padding:8px 12px;border-radius:999px;font-weight:800}
+
   /* Conteúdo */
-  main{max-width:1100px;margin:14px auto;display:grid;gap:14px;padding:0 12px}
+  main{max-width:1100px;margin:10px auto;display:grid;gap:14px;padding:0 12px}
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-  .card{
-    background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px
-  }
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
   .card h2{margin:0 0 10px 0;font-size:1.05rem;color:#e2e8f0}
 
   /* Chip de GPS */
-  .chip{
-    display:inline-flex;align-items:center;gap:10px;
-    border:1px solid var(--border);background:#0b1327;color:var(--muted);
-    padding:10px 12px;border-radius:999px;font-weight:800;user-select:none
-  }
+  .chip{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);background:#0b1327;color:var(--muted);
+        padding:10px 12px;border-radius:999px;font-weight:800;user-select:none}
   .dot{width:10px;height:10px;border-radius:50%}
   .ok .dot{background:var(--ok)}     .ok{color:#cde8d4}
   .warn .dot{background:var(--warn)} .warn{color:#ffe7bf}
@@ -45,17 +41,12 @@
 
   /* Lista de IDs */
   ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
-  li{
-    line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;
-    border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#0d1429
-  }
+  li{line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#0d1429}
   li:first-child{border-color:#34d399} /* destaque do mais próximo */
 
   /* Ações */
   .actions{display:flex;gap:10px;flex-wrap:wrap}
-  button{
-    padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;cursor:pointer
-  }
+  button{padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;cursor:pointer}
   #btnSend{background:var(--btn)}
   #btnMap{background:var(--btn2)}
   button:disabled{opacity:.5;cursor:not-allowed}
@@ -63,9 +54,7 @@
   /* Layout responsivo */
   .col-4{grid-column:span 4}
   .col-8{grid-column:span 8}
-  @media (max-width:900px){
-    .col-4,.col-8{grid-column:1/-1}
-  }
+  @media (max-width:900px){ .col-4,.col-8{grid-column:1/-1} }
 </style>
 </head>
 <body>
@@ -77,14 +66,18 @@
   </div>
 </header>
 
+<div id="status">
+  <div id="gpsChip" class="chip bad" aria-live="polite">
+    <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
+  </div>
+  <div id="diag" class="badge" style="display:none">—</div>
+</div>
+
 <main>
   <div class="grid">
     <!-- Status / Ações -->
-    <section class="card col-4" aria-label="Status do GPS e ações">
-      <h2>Status</h2>
-      <div id="gpsChip" class="chip bad" aria-live="polite" style="margin-bottom:12px">
-        <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
-      </div>
+    <section class="card col-4" aria-label="Ações">
+      <h2>Ações</h2>
       <div class="actions">
         <button id="btnSend" disabled>Enviar (limpo)</button>
         <button id="btnMap" disabled>Enviar (com mapas)</button>
@@ -100,85 +93,150 @@
 </main>
 
 <script>
-/* ========= Config visual do chip ========= */
+/* ============ Config visual do chip ============ */
 const ACC_GREEN = 10;   // m
 const ACC_YELLOW = 25;  // m
 
-/* ========= Estado ========= */
+/* ============ Estado ============ */
 let dataset = [];           // {id, lat, lon}
 let lastPos = null;         // {lat, lon, acc}
 let lastRender = 0;
 
-/* ========= Util ========= */
+/* ============ Helpers ============ */
+const gpsChip = document.getElementById('gpsChip');
+const gpsText = document.getElementById('gpsText');
+const diag    = document.getElementById('diag');
+const btnSend = document.getElementById('btnSend');
+const btnMap  = document.getElementById('btnMap');
+
+function showDiag(msg){
+  diag.style.display = 'inline-flex';
+  diag.textContent = msg;
+}
+
+function normalizeStr(s){
+  return String(s||'')
+   .trim()
+   .toLowerCase()
+   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // tira acentos
+   .replace(/[^a-z0-9_ ]+/g,' ')
+   .replace(/\s+/g,' ');
+}
+
+function findColumnIndex(headers, candidates){
+  // candidates = array de strings possíveis (já normalizadas)
+  const map = headers.map(h => normalizeStr(h));
+  // match exato
+  for(const c of candidates){
+    const i = map.indexOf(c);
+    if(i >= 0) return i;
+  }
+  // match "contém"
+  for(const c of candidates){
+    for(let i=0;i<map.length;i++){
+      if(map[i].includes(c)) return i;
+    }
+  }
+  return -1;
+}
+
 function parsePt(v){
   if(v==null) return NaN;
-  return Number(String(v).trim().replace(/\\./g,'').replace(',', '.'));
+  // aceita "1.234,56" ou "1234,56" ou "1234.56"
+  const s = String(v).trim();
+  if(/,\d{1,}$/.test(s)){ // tem vírgula decimal
+    return Number(s.replace(/\./g,'').replace(',','.'));
+  }
+  return Number(s);
 }
+
 function hav(a,b,c,d){
   const R=6371000, x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180;
   const u=Math.sin(x/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;
   return 2*R*Math.atan2(Math.sqrt(u),Math.sqrt(1-u));
 }
+
 function nearestN(lat, lon, n=10){
   if(!dataset.length) return [];
   const arr = dataset.map(p=>({id:p.id, lat:p.lat, lon:p.lon, d:hav(lat,lon,p.lat,p.lon)}));
   arr.sort((a,b)=>a.d-b.d);
   return arr.slice(0, Math.min(n, arr.length));
 }
+
 function fmtAcc(acc){
   return (acc==null || !Number.isFinite(acc)) ? '—' : ('±'+Math.round(acc)+' m');
 }
 
-/* ========= GPS Chip ========= */
-const gpsChip = document.getElementById('gpsChip');
-const gpsText = document.getElementById('gpsText');
 function updateGpsChip(){
   if(!lastPos || lastPos.acc==null){
-    gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
+    gpsChip.className = 'chip bad';
     gpsText.textContent = 'GPS: buscando…';
     return;
   }
   const acc = Math.round(lastPos.acc);
   if(acc <= ACC_GREEN){
-    gpsChip.classList.remove('warn','bad'); gpsChip.classList.add('ok');
+    gpsChip.className = 'chip ok';
     gpsText.textContent = `GPS: OK (${fmtAcc(acc)})`;
   }else if(acc <= ACC_YELLOW){
-    gpsChip.classList.remove('ok','bad'); gpsChip.classList.add('warn');
+    gpsChip.className = 'chip warn';
     gpsText.textContent = `GPS: ajustando (${fmtAcc(acc)})`;
   }else{
-    gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
+    gpsChip.className = 'chip bad';
     gpsText.textContent = `GPS: fraco (${fmtAcc(acc)})`;
   }
 }
 
-/* ========= Carregamento CSV ========= */
+function updateButtons(){
+  const ok = (dataset.length && lastPos);
+  btnSend.disabled = !ok;
+  btnMap.disabled  = !ok;
+}
+
+/* ============ CSV Loader (robusto) ============ */
 async function loadCSV(){
   try{
-    let resp = await fetch('dados.csv', {cache:'no-store'});
-    if(!resp.ok){ resp = await fetch('Dados_Completos_Grupo_2_all.csv', {cache:'no-store'}); }
-    if(!resp.ok) return;
+    let url1 = 'dados.csv?v=' + Date.now();
+    let url2 = 'Dados_Completos_Grupo_2_all.csv?v=' + Date.now();
 
-    const text = await resp.text();
-    const lines = text.split(/\\r?\\n/).filter(l=>l.trim()!=='');
-    if(lines.length<2) return;
+    let resp = await fetch(url1, {cache:'no-store'});
+    if(!resp.ok){ resp = await fetch(url2, {cache:'no-store'}); }
+    if(!resp.ok){ showDiag('❌ CSV não encontrado'); return; }
 
-    const head = lines.shift().split(';').map(h=>h.trim().toLowerCase());
-    const iLat = head.indexOf('latitude');
-    const iLon = head.indexOf('longitude');
-    let iId = head.indexOf('id do nox'); if(iId<0) iId=head.indexOf('idnox'); if(iId<0) iId=head.indexOf('id');
-    if(iLat<0 || iLon<0 || iId<0) return;
+    let text = await resp.text();
+    if(text.charCodeAt(0) === 0xFEFF){ text = text.slice(1); } // remove BOM
+    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
+    if(lines.length<2){ showDiag('❌ CSV vazio'); return; }
+
+    const head = lines.shift().split(';');
+
+    const iId  = findColumnIndex(head, ['id do nox','idnox','id']);
+    const iLat = findColumnIndex(head, ['latitude','lat']);
+    const iLon = findColumnIndex(head, ['longitude','lon','long']);
+
+    if(iId<0 || iLat<0 || iLon<0){
+      showDiag('❌ Cabeçalho inválido (esperado: ID / Latitude / Longitude)');
+      return;
+    }
 
     dataset = lines.map(l=>{
       const r = l.split(';');
-      return { id:String(r[iId]||'').trim()||'Sem ID', lat:parsePt(r[iLat]), lon:parsePt(r[iLon]) };
-    }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+      return {
+        id: String(r[iId]||'').trim(),
+        lat: parsePt(r[iLat]),
+        lon: parsePt(r[iLon])
+      };
+    }).filter(p => p.id && Number.isFinite(p.lat) && Number.isFinite(p.lon));
+
+    if(!dataset.length){ showDiag('❌ Sem pontos válidos no CSV'); return; }
 
     render(true);
     updateButtons();
-  }catch(e){ /* silencioso */ }
+  }catch(e){
+    showDiag('❌ Erro ao carregar CSV');
+  }
 }
 
-/* ========= Render da lista ========= */
+/* ============ Render ============ */
 function render(force=false){
   const now = performance.now();
   if(!force && now - lastRender < 180) return;
@@ -189,6 +247,8 @@ function render(force=false){
   if(!lastPos || !dataset.length) return;
 
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
+  if(!items.length){ ul.innerHTML = '<li>—</li>'; return; }
+
   items.forEach((o, idx)=>{
     const li = document.createElement('li');
     li.textContent = o.id;
@@ -197,28 +257,29 @@ function render(force=false){
   });
 }
 
-/* ========= GPS ========= */
+/* ============ GPS (prompt imediato + watch) ============ */
 function startGPS(){
-  if(!('geolocation' in navigator)) return;
-  navigator.geolocation.watchPosition(pos=>{
-    lastPos = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy };
-    updateGpsChip();
-    render();
-    updateButtons();
-  }, ()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+  if(!('geolocation' in navigator)){ showDiag('❌ Seu navegador não oferece geolocalização'); return; }
+
+  // Força o prompt logo no início (melhor UX em exposição)
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      lastPos = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy };
+      updateGpsChip(); updateButtons(); render(true);
+      // passa a observar movimento/precisão
+      navigator.geolocation.watchPosition(p=>{
+        lastPos = { lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy };
+        updateGpsChip(); updateButtons(); render();
+      }, err=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+    },
+    err => {
+      showDiag('❗ Permita o acesso ao GPS para listar os IDs próximos');
+    },
+    { enableHighAccuracy:true, maximumAge:0, timeout:10000 }
+  );
 }
 
-/* ========= Envio WhatsApp ========= */
-const btnSend = document.getElementById('btnSend');
-const btnMap  = document.getElementById('btnMap');
-
-function updateButtons(){
-  // Habilita com base + posição (não trava pela precisão)
-  const ok = (dataset.length && lastPos);
-  btnSend.disabled = !ok;
-  btnMap.disabled  = !ok;
-}
-
+/* ============ Envio WhatsApp ============ */
 btnSend.addEventListener('click', ()=>{
   if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
@@ -226,7 +287,7 @@ btnSend.addEventListener('click', ()=>{
 
   const accTxt = fmtAcc(lastPos.acc);
   let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  items.forEach(o => tx += `ID: ${o.id}\n`); // envio limpo (só IDs + cabeçalho)
+  items.forEach(o => tx += `ID: ${o.id}\n`);
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
@@ -237,12 +298,11 @@ btnMap.addEventListener('click', ()=>{
 
   const accTxt = fmtAcc(lastPos.acc);
   let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  // anexa links de mapa (opcional, a pedido)
   items.forEach(o => tx += `ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`);
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
-/* ========= Boot ========= */
+/* ============ Boot ============ */
 (function boot(){
   loadCSV();
   startGPS();
