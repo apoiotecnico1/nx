@@ -3,84 +3,116 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>IDs</title>
+<title>Portal · IDs Próximos</title>
 <meta name="theme-color" content="#0b1220" />
 <style>
   :root{
-    --bg:#0b1220; --fg:#fff; --muted:#9ca3b8;
-    --card:#0f172a; --border:#1f2937; --accent:#0ea5e9; --wa:#25D366;
-    --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
+    --bg:#0b1220; --fg:#fff; --muted:#94a3b8;
+    --brand:#0ea5e9; --brand2:#5eead4;
+    --card:#0f172a; --border:#1f2937; --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444;
+    --btn:#25D366; --btn2:#0ea5e9;
   }
   html,body{margin:0;height:100%}
-  body{
-    background:var(--bg); color:var(--fg);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:14px
-  }
+  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
 
-  /* Chip de status do GPS */
-  .chip{
-    display:inline-flex; align-items:center; gap:10px;
-    border:1px solid var(--border); background:var(--card); color:var(--muted);
-    padding:10px 12px; border-radius:999px; font-weight:800; user-select:none
+  /* Header estilo portal */
+  header{
+    background:linear-gradient(90deg,var(--brand),var(--brand2));
+    padding:16px 18px
   }
-  .dot{width:10px; height:10px; border-radius:50%}
-  .ok .dot{ background:var(--ok) }     .ok{ color:#cde8d4 }
-  .warn .dot{ background:var(--warn) } .warn{ color:#ffe7bf }
-  .bad .dot{ background:var(--bad) }   .bad{ color:#ffc7c7 }
+  .brand{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
+  .brand h1{margin:0;font-size:1.2rem;font-weight:1000;letter-spacing:.02em}
+  .brand small{opacity:.9;font-weight:700}
+
+  /* Conteúdo */
+  main{max-width:1100px;margin:14px auto;display:grid;gap:14px;padding:0 12px}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px
+  }
+  .card h2{margin:0 0 10px 0;font-size:1.05rem;color:#e2e8f0}
+
+  /* Chip de GPS */
+  .chip{
+    display:inline-flex;align-items:center;gap:10px;
+    border:1px solid var(--border);background:#0b1327;color:var(--muted);
+    padding:10px 12px;border-radius:999px;font-weight:800;user-select:none
+  }
+  .dot{width:10px;height:10px;border-radius:50%}
+  .ok .dot{background:var(--ok)}     .ok{color:#cde8d4}
+  .warn .dot{background:var(--warn)} .warn{color:#ffe7bf}
+  .bad .dot{background:var(--bad)}   .bad{color:#ffc7c7}
 
   /* Lista de IDs */
-  ul{margin:0; padding:0; list-style:none; display:grid; gap:6px; width:min(840px,94vw)}
+  ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
   li{
-    line-height:1.25; font-family:ui-monospace,Consolas,Menlo,monospace;
-    border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--card);
-    cursor:pointer; user-select:none
+    line-height:1.25;font-family:ui-monospace,Consolas,Menlo,monospace;
+    border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#0d1429
   }
-  li:first-child{ border-color:#34d399 } /* destaque do mais próximo */
-  li:active{ transform:translateY(1px) }
+  li:first-child{border-color:#34d399} /* destaque do mais próximo */
 
-  /* Botões */
-  .row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+  /* Ações */
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
   button{
-    padding:14px 18px; font-size:1rem; font-weight:800; border:0; border-radius:12px; color:#fff; cursor:pointer
+    padding:14px 18px;font-size:1rem;font-weight:800;border:0;border-radius:12px;color:#fff;cursor:pointer
   }
-  #btnSend{ background:var(--wa) }
-  #btnMapAll{ background:#0ea5e9 }
-  #btnMapYou{ background:#64748b } /* cinza-azulado */
-  button:disabled{ opacity:.5; cursor:not-allowed }
+  #btnSend{background:var(--btn)}
+  #btnMap{background:var(--btn2)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+
+  /* Layout responsivo */
+  .col-4{grid-column:span 4}
+  .col-8{grid-column:span 8}
+  @media (max-width:900px){
+    .col-4,.col-8{grid-column:1/-1}
+  }
 </style>
 </head>
 <body>
 
-  <!-- Status de GPS -->
-  <div id="gpsChip" class="chip bad" aria-live="polite">
-    <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
+<header>
+  <div class="brand">
+    <h1>Portal · IDs Próximos</h1>
+    <small>Operação limpa · envio por WhatsApp</small>
   </div>
+</header>
 
-  <!-- Lista dos 10 IDs mais próximos -->
-  <ul id="list" aria-live="polite" aria-label="IDs mais próximos"></ul>
+<main>
+  <div class="grid">
+    <!-- Status / Ações -->
+    <section class="card col-4" aria-label="Status do GPS e ações">
+      <h2>Status</h2>
+      <div id="gpsChip" class="chip bad" aria-live="polite" style="margin-bottom:12px">
+        <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
+      </div>
+      <div class="actions">
+        <button id="btnSend" disabled>Enviar (limpo)</button>
+        <button id="btnMap" disabled>Enviar (com mapas)</button>
+      </div>
+    </section>
 
-  <!-- Ações -->
-  <div class="row">
-    <button id="btnSend"   disabled>Enviar</button>
-    <button id="btnMapAll" disabled>Gerar mapa + Enviar</button>
-    <button id="btnMapYou" disabled>Mapa (você)</button>
+    <!-- IDs próximos -->
+    <section class="card col-8" aria-label="IDs mais próximos">
+      <h2>IDs próximos</h2>
+      <ul id="list" aria-live="polite"></ul>
+    </section>
   </div>
+</main>
 
 <script>
-/* =================== Config (cores do chip) =================== */
-const ACC_GREEN = 10;   // m → verde
-const ACC_YELLOW = 25;  // m → amarelo
+/* ========= Config visual do chip ========= */
+const ACC_GREEN = 10;   // m
+const ACC_YELLOW = 25;  // m
 
-/* =================== Estado =================== */
-let dataset = [];          // {id, lat, lon}
-let lastPos = null;        // {lat, lon, acc}
+/* ========= Estado ========= */
+let dataset = [];           // {id, lat, lon}
+let lastPos = null;         // {lat, lon, acc}
 let lastRender = 0;
 
-/* =================== Utilitários =================== */
+/* ========= Util ========= */
 function parsePt(v){
   if(v==null) return NaN;
-  return Number(String(v).trim().replace(/\./g,'').replace(',', '.'));
+  return Number(String(v).trim().replace(/\\./g,'').replace(',', '.'));
 }
 function hav(a,b,c,d){
   const R=6371000, x=(c-a)*Math.PI/180, y=(d-b)*Math.PI/180;
@@ -97,10 +129,9 @@ function fmtAcc(acc){
   return (acc==null || !Number.isFinite(acc)) ? '—' : ('±'+Math.round(acc)+' m');
 }
 
-/* =================== UI: GPS Chip =================== */
+/* ========= GPS Chip ========= */
 const gpsChip = document.getElementById('gpsChip');
 const gpsText = document.getElementById('gpsText');
-
 function updateGpsChip(){
   if(!lastPos || lastPos.acc==null){
     gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
@@ -120,7 +151,7 @@ function updateGpsChip(){
   }
 }
 
-/* =================== Carregar CSV =================== */
+/* ========= Carregamento CSV ========= */
 async function loadCSV(){
   try{
     let resp = await fetch('dados.csv', {cache:'no-store'});
@@ -128,7 +159,7 @@ async function loadCSV(){
     if(!resp.ok) return;
 
     const text = await resp.text();
-    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
+    const lines = text.split(/\\r?\\n/).filter(l=>l.trim()!=='');
     if(lines.length<2) return;
 
     const head = lines.shift().split(';').map(h=>h.trim().toLowerCase());
@@ -147,7 +178,7 @@ async function loadCSV(){
   }catch(e){ /* silencioso */ }
 }
 
-/* =================== Render da lista =================== */
+/* ========= Render da lista ========= */
 function render(force=false){
   const now = performance.now();
   if(!force && now - lastRender < 180) return;
@@ -161,17 +192,12 @@ function render(force=false){
   items.forEach((o, idx)=>{
     const li = document.createElement('li');
     li.textContent = o.id;
-    // Clique em um ID → abre o Google Maps na coordenada do ID (técnico confere o local)
-    li.addEventListener('click', ()=>{
-      const url = `https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}`;
-      window.open(url, '_blank');
-    });
-    if(idx===0) li.style.borderColor = '#34d399';
+    if(idx===0) li.style.borderColor = '#34d399'; // mais próximo
     ul.appendChild(li);
   });
 }
 
-/* =================== GPS =================== */
+/* ========= GPS ========= */
 function startGPS(){
   if(!('geolocation' in navigator)) return;
   navigator.geolocation.watchPosition(pos=>{
@@ -182,20 +208,17 @@ function startGPS(){
   }, ()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
 }
 
-/* =================== Envio WhatsApp =================== */
-const btnSend   = document.getElementById('btnSend');
-const btnMapAll = document.getElementById('btnMapAll');
-const btnMapYou = document.getElementById('btnMapYou');
+/* ========= Envio WhatsApp ========= */
+const btnSend = document.getElementById('btnSend');
+const btnMap  = document.getElementById('btnMap');
 
 function updateButtons(){
-  // Habilita botões quando houver base + posição (NÃO bloqueia por precisão)
+  // Habilita com base + posição (não trava pela precisão)
   const ok = (dataset.length && lastPos);
-  btnSend.disabled   = !ok;
-  btnMapAll.disabled = !ok;
-  btnMapYou.disabled = !ok;
+  btnSend.disabled = !ok;
+  btnMap.disabled  = !ok;
 }
 
-// Enviar (IDs + precisão/Lat/Lon)
 btnSend.addEventListener('click', ()=>{
   if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
@@ -203,32 +226,23 @@ btnSend.addEventListener('click', ()=>{
 
   const accTxt = fmtAcc(lastPos.acc);
   let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  items.forEach(o => tx += `ID: ${o.id}\n`);
+  items.forEach(o => tx += `ID: ${o.id}\n`); // envio limpo (só IDs + cabeçalho)
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
-// Gerar mapa + Enviar (links do Maps para cada ponto)
-btnMapAll.addEventListener('click', ()=>{
+btnMap.addEventListener('click', ()=>{
   if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
   if(!items.length) return;
 
   const accTxt = fmtAcc(lastPos.acc);
-  let tx = `Mapa (pontos próximos)\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
-  items.forEach(o => {
-    tx += `ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`;
-  });
+  let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
+  // anexa links de mapa (opcional, a pedido)
+  items.forEach(o => tx += `ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`);
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
-// Mapa (você): abre o Google Maps na posição atual do técnico
-btnMapYou.addEventListener('click', ()=>{
-  if(!lastPos) return;
-  const url = `https://maps.google.com/?q=${lastPos.lat.toFixed(6)},${lastPos.lon.toFixed(6)}`;
-  window.open(url, '_blank');
-});
-
-/* =================== Boot =================== */
+/* ========= Boot ========= */
 (function boot(){
   loadCSV();
   startGPS();
