@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Inspeção Rápida – Lâmpadas Apagadas</title>
+<meta name="theme-color" content="#0ea5e9" />
+<style>
+ body{margin:0;font-family:system-ui;background:#0b1220;color:#fff;text-align:center;padding:20px}
+ h1{font-size:1.6rem;margin-bottom:20px}
+ button{width:100%;padding:20px;font-size:1.3rem;font-weight:900;border:0;border-radius:14px;background:#0ea5e9;color:#fff;margin-bottom:20px}
+ #preview{margin-top:20px;max-width:90%;border-radius:14px;display:none}
+ .info{margin-top:8px;color:#9ca3af}
+</style>
+</head>
+<body>
+<h1>INSPEÇÃO RÁPIDA – DUTORES APAGADOS</h1>
+<p class="info">1 toque → tira foto → envia para WhatsApp com localização automática</p>
+
+<input id="inpPhoto" type="file" accept="image/*;capture=camera" hidden>
+<button id="btnFoto">📸 Tirar Foto da Lâmpada</button>
+<img id="preview">
+
+<script>
+let lastPos=null;
+if(navigator.geolocation){ navigator.geolocation.watchPosition(p=>{
+ lastPos={lat:p.coords.latitude, lon:p.coords.longitude};
+});}
+
+document.querySelector('#btnFoto').onclick=()=>{
+ document.querySelector('#inpPhoto').click();
+};
+
+document.querySelector('#inpPhoto').onchange=(e)=>{
+ const file=e.target.files[0];
+ if(!file) return;
+ const img=document.querySelector('#preview');
+ img.src=URL.createObjectURL(file);
+ img.style.display='block';
+
+ const lat=lastPos? lastPos.lat.toFixed(6):'0';
+ const lon=lastPos? lastPos.lon.toFixed(6):'0';
+ const texto=`Lâmpada apagada detectada.\nLocalização: https://maps.google.com/?q=${lat},${lon}`;
+
+ if(navigator.canShare && navigator.canShare({files:[file]})){
+   navigator.share({title:'Ocorrência – Lâmpada Apagada', text:texto, files:[file]});
+ } else {
+   const url='https://wa.me/?text='+encodeURIComponent(texto);
+   window.open(url,'_blank');
+   alert('Seu navegador não suporta compartilhamento direto de foto. O WhatsApp abriu com o texto — anexe a foto manualmente.');
+ }
+ e.target.value='';
+};
+</script>
+</body>
+</html>
