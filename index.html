@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pontos Próximos — Auto-GPS + WhatsApp</title>
+  <meta name="theme-color" content="#0a7" />
+  <style>
+    :root{--bg:#0b0e11;--panel:#12171c;--muted:#90a4b8;--fg:#e6eef5;--accent:#13b37a;--line:#1f2a33}
+    *{box-sizing:border-box}
+    body{margin:0;background:#0b0e11;color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    header{position:sticky;top:0;z-index:2;background:#0b0e11cc;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+    header .wrap{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px 14px}
+    h1{font-size:16px;margin:0;font-weight:700}
+    main{max-width:820px;margin:0 auto;padding:12px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 4px 16px #0006}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;gap:6px;align-items:center;background:#0d1922;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
+    #ids{list-style:none;margin:10px 0 0 0;padding:0}
+    #ids li{padding:10px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+    #ids small{color:var(--muted)}
+    button, label.btn{background:linear-gradient(180deg,#14ba80,#0aa36f);border:none;color:#08261b;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer}
+    button.secondary,label.btn.secondary{background:#0d1922;color:#cfe5f7;border:1px solid var(--line)}
+    input[type=file]{display:none}
+    .grid{display:grid;grid-template-columns:1fr auto auto;gap:8px}
+    @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  </style>
+  <!-- Bibliotecas para leitura de CSV/Excel/KML/KMZ -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>IDs mais próximos (auto-GPS)</h1>
+      <div class="row">
+        <label class="btn secondary"><input id="fileInput" type="file" accept=".csv,.xlsx,.xls,.kml,.kmz"/>📥 Importar</label>
+        <button id="btnDemo" class="secondary">Demo</button>
+        <button id="btnWhats">Enviar IDs no WhatsApp</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="grid">
+        <div class="row"><span class="pill">📍 <b id="gpsLat">–</b>, <b id="gpsLon">–</b></span><span class="muted" id="acc">Precisão: —</span></div>
+        <div class="muted" id="status">Buscando sua posição…</div>
+        <div class="muted" id="fonte"></div>
+      </div>
+      <ul id="ids"></ul>
+    </section>
+  </main>
+
+  <script>
+  // Conversão PT-BR -> número
+  const toNum = (v)=>{
+    if(v==null) return NaN;
+    if(typeof v==='number') return v;
+    const s = String(v).trim();
+    const t = s.replace(/\./g,'').replace(',', '.');
+    const n = Number(t);
+    return Number.isFinite(n)? n : Number(s);
+  };
+
+  const S = {pontos: [], pos: null};
+
+  // Identifica colunas prováveis
+  function pickCols(row){
+    const ks = Object.keys(row);
+    const g = (alts)=>ks.find(k=>alts.some(a=>k.toLowerCase().includes(a)));
+    return {
+      kLat: g(['latitude','lat']),
+      kLon: g(['longitude','lon','long']),
+      kId:  g(['id do nox','idnox','id']),
+      kNome:g(['endereco','endereço','nome','descricao','descrição','local'])
+    };
+  }
+
+  function toPoint(row){
+    const {kLat,kLon,kId,kNome} = pickCols(row);
+    if(!kLat || !kLon) return null;
+    const lat = toNum(row[kLat]);
+    const lon = toNum(row[kLon]);
+    if(!isFinite(lat)||!isFinite(lon)||lat===0||lon===0) return null;
+    const id = String(row[kId]||row[kNome]||row['ID']||row['ID do NOX']||'Sem ID').trim();
+    const nome = String(row[kNome]||row[kId]||'').trim();
+    return {id, nome, lat, lon};
+  }
+
+  function hav(lat1,lon1,lat2,lon2){
+    const R=6371000, d2r=(d)=>d*Math.PI/180;
+    const dLat=d2r(lat2-lat1), dLon=d2r(lon2-lon1);
+    const a=Math.sin(dLat/2)**2+Math.cos(d2r(lat1))*Math.cos(d2r(lat2))*Math.sin(dLon/2)**2;
+    return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  function render(){
+    const ul = document.getElementById('ids');
+    if(!S.pos || !S.pontos.length){ ul.innerHTML = '<li class="muted">Importe um arquivo para ver os IDs.</li>'; return; }
+    const ordenados = S.pontos.map(p=>({
+      ...p, d: hav(S.pos.lat,S.pos.lon,p.lat,p.lon)
+    })).sort((a,b)=>a.d-b.d).slice(0,10);
+
+    ul.innerHTML = ordenados.map(p=>`<li><b>${escapeHtml(p.id)}</b> <small>${Math.round(p.d)} m</small></li>`).join('');
+  }
+
+  function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+  // Arquivos
+  async function handleFile(f){
+    const name=f.name.toLowerCase();
+    if(name.endsWith('.csv')) return importCSV(f);
+    if(name.endsWith('.xlsx')||name.endsWith('.xls')) return importXLSX(f);
+    if(name.endsWith('.kml')) return importKML(await f.text());
+    if(name.endsWith('.kmz')) return importKMZ(f);
+    alert('Formato não suportado.');
+  }
+
+  function importCSV(file){
+    return new Promise((res,rej)=>{
+      Papa.parse(file,{header:true,skipEmptyLines:true,delimitersToGuess:[';','\t',','],complete:(r)=>{
+        const pts=r.data.map(toPoint).filter(Boolean);
+        apply(pts, file.name+` · ${pts.length} pontos`); res();
+      }, error:rej});
+    });
+  }
+
+  async function importXLSX(file){
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'}); const sh=wb.SheetNames[0];
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sh],{defval:''});
+    const pts=rows.map(toPoint).filter(Boolean); apply(pts, file.name+` · ${pts.length} pontos`);
+  }
+
+  function extractFromKMLDoc(doc){
+    const out=[]; const marks=doc.getElementsByTagName('Placemark');
+    for(const pm of marks){
+      const name=pm.getElementsByTagName('name')[0]?.textContent?.trim()||'Sem nome';
+      for(const c of pm.getElementsByTagName('coordinates')){
+        const pairs=(c.textContent||'').trim().split(/\s+/).filter(Boolean);
+        for(const pr of pairs){
+          const [lon,lat]=pr.split(','); const la=toNum(lat), lo=toNum(lon);
+          if(isFinite(la)&&isFinite(lo)&&la!==0&&lo!==0) out.push({id:name,nome:name,lat:la,lon:lo});
+        }
+      }
+    }
+    return out;
+  }
+
+  async function importKML(text){
+    const doc=new DOMParser().parseFromString(text,'application/xml');
+    apply(extractFromKMLDoc(doc), 'KML importado');
+  }
+
+  async function importKMZ(file){
+    const zip=await JSZip.loadAsync(await file.arrayBuffer());
+    const kml=Object.values(zip.files).find(f=>f.name.toLowerCase().endsWith('.kml'));
+    if(!kml) return alert('KMZ sem KML.');
+    importKML(await kml.async('string'));
+  }
+
+  function apply(pts,label){
+    const key=p=>`${p.id}|${p.lat.toFixed(6)}|${p.lon.toFixed(6)}`;
+    const map=new Map(); for(const p of pts){ if(!map.has(key(p))) map.set(key(p),p); }
+    S.pontos=[...map.values()];
+    document.getElementById('fonte').textContent='Fonte: '+label;
+    render();
+  }
+
+  // WhatsApp: gerar mensagem com Top 10 IDs
+  function sendWhats(){
+    if(!S.pos||!S.pontos.length){ alert('Importe um arquivo e aguarde o GPS.'); return; }
+    const top = S.pontos.map(p=>({...p,d:hav(S.pos.lat,S.pos.lon,p.lat,p.lon)}))
+                        .sort((a,b)=>a.d-b.d).slice(0,10);
+    const linhas = [
+      'IDs mais próximos:',
+      `📍 Posição: ${S.pos.lat.toFixed(6)}, ${S.pos.lon.toFixed(6)}`,
+      ...top.map((p,i)=>`${i+1}. ${p.id} — ${Math.round(p.d)} m`)
+    ];
+    const msg = encodeURIComponent(linhas.join('\n'));
+    const url = `https://wa.me/?text=${msg}`;
+    window.open(url,'_blank');
+  }
+
+  // GPS — inicia automaticamente
+  function startGPS(){
+    if(!('geolocation' in navigator)){
+      document.getElementById('status').textContent='Geolocalização não suportada.';return;
+    }
+    navigator.geolocation.watchPosition((pos)=>{
+      S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
+      document.getElementById('gpsLat').textContent=S.pos.lat.toFixed(6);
+      document.getElementById('gpsLon').textContent=S.pos.lon.toFixed(6);
+      document.getElementById('acc').textContent='Precisão: '+Math.round(S.pos.acc)+' m';
+      document.getElementById('status').textContent='Localização atualizada';
+      render();
+    },(err)=>{
+      document.getElementById('status').textContent=err.message||'Falha ao obter localização';
+    },{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  }
+
+  // Demo mínima
+  function demo(){
+    const pts=[
+      {id:'MN213RJRJ1206', nome:'MN - Marginal Norte - km213 - Sentido RJ', lat:-23.442266, lon:-46.442272},
+      {id:'ES156SPN291', nome:'RODOVIA PRESIDENTE DUTRA KM 157+110', lat:-23.255400, lon:-45.943199},
+      {id:'MS225SPN1927a', nome:'BR-116 Rod. Pres. Dutra, km 225', lat:-23.490877, lon:-46.549706}
+    ];
+    apply(pts, 'Demo interna');
+  }
+
+  // Eventos
+  document.getElementById('fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) handleFile(f); });
+  document.getElementById('btnWhats').addEventListener('click', sendWhats);
+  document.getElementById('btnDemo').addEventListener('click', demo);
+
+  // Auto-iniciar
+  startGPS();
+  </script>
+</body>
+</html>
