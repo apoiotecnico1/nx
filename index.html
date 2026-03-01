@@ -35,19 +35,21 @@
     line-height:1.25; font-family:ui-monospace,Consolas,Menlo,monospace;
     border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--card);
   }
-  /* Destaca o mais próximo */
-  li:first-child{ border-color:#34d399 }
+  li:first-child{ border-color:#34d399 } /* destaque do mais próximo */
 
-  /* Botão Enviar (só aparece com GPS verde) */
-  #btnWA{
-    display:none; padding:14px 18px; font-size:1rem; font-weight:800;
-    border:0; border-radius:12px; color:#fff; background:var(--wa); cursor:pointer
+  /* Botões */
+  .row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+  button{
+    padding:14px 18px; font-size:1rem; font-weight:800; border:0; border-radius:12px; color:#fff; cursor:pointer
   }
+  #btnSend{ background:var(--wa) }
+  #btnMap{ background:#0ea5e9 }
+  button:disabled{ opacity:.5; cursor:not-allowed }
 </style>
 </head>
 <body>
 
-  <!-- Status de GPS (verde/amarelo/vermelho) -->
+  <!-- Status de GPS -->
   <div id="gpsChip" class="chip bad" aria-live="polite">
     <span class="dot"></span><span id="gpsText">GPS: aguardando…</span>
   </div>
@@ -55,19 +57,21 @@
   <!-- Lista dos 10 IDs mais próximos -->
   <ul id="list" aria-live="polite" aria-label="IDs mais próximos"></ul>
 
-  <!-- Enviar (só aparece quando GPS estiver VERDE/OK) -->
-  <button id="btnWA">Enviar</button>
+  <!-- Ações -->
+  <div class="row">
+    <button id="btnSend" disabled>Enviar</button>
+    <button id="btnMap" disabled>Gerar mapa + Enviar</button>
+  </div>
 
 <script>
-/* =================== Configuração =================== */
-/* Precisão: só VERDE (OK) habilita o envio */
-const ACC_GREEN = 10;   // metros (precisão máxima)
-const ACC_YELLOW = 25;  // metros (intermediário)
+/* =================== Config (apenas visual do chip) =================== */
+const ACC_GREEN = 10;   // m (verde)
+const ACC_YELLOW = 25;  // m (amarelo)
 
 /* =================== Estado =================== */
 let dataset = [];          // {id, lat, lon}
 let lastPos = null;        // {lat, lon, acc}
-let lastRender = 0;        // throttle
+let lastRender = 0;
 
 /* =================== Utilitários =================== */
 function parsePt(v){
@@ -81,44 +85,39 @@ function hav(a,b,c,d){
 }
 function nearestN(lat, lon, n=10){
   if(!dataset.length) return [];
-  const arr = dataset.map(p=>({id:p.id, d:hav(lat,lon,p.lat,p.lon)}));
+  const arr = dataset.map(p=>({id:p.id, lat:p.lat, lon:p.lon, d:hav(lat,lon,p.lat,p.lon)}));
   arr.sort((a,b)=>a.d-b.d);
   return arr.slice(0, Math.min(n, arr.length));
 }
+function fmtAcc(acc){
+  return (acc==null || !Number.isFinite(acc)) ? '—' : ('±'+Math.round(acc)+' m');
+}
 
-/* =================== UI: GPS Chip & Botão =================== */
+/* =================== UI: GPS Chip =================== */
 const gpsChip = document.getElementById('gpsChip');
 const gpsText = document.getElementById('gpsText');
-const btnWA   = document.getElementById('btnWA');
-
 function updateGpsChip(){
   if(!lastPos || lastPos.acc==null){
     gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
     gpsText.textContent = 'GPS: buscando…';
-    btnWA.style.display = 'none';
     return;
   }
   const acc = Math.round(lastPos.acc);
   if(acc <= ACC_GREEN){
     gpsChip.classList.remove('warn','bad'); gpsChip.classList.add('ok');
-    gpsText.textContent = `GPS: OK (±${acc} m)`;
-    // Só aparece se há base e posição
-    btnWA.style.display = (dataset.length && lastPos) ? 'inline-block' : 'none';
+    gpsText.textContent = `GPS: OK (${fmtAcc(acc)})`;
   }else if(acc <= ACC_YELLOW){
     gpsChip.classList.remove('ok','bad'); gpsChip.classList.add('warn');
-    gpsText.textContent = `GPS: ajustando (±${acc} m)`;
-    btnWA.style.display = 'none';
+    gpsText.textContent = `GPS: ajustando (${fmtAcc(acc)})`;
   }else{
     gpsChip.classList.remove('ok','warn'); gpsChip.classList.add('bad');
-    gpsText.textContent = `GPS: fraco (±${acc} m)`;
-    btnWA.style.display = 'none';
+    gpsText.textContent = `GPS: fraco (${fmtAcc(acc)})`;
   }
 }
 
 /* =================== Carregar CSV =================== */
 async function loadCSV(){
   try{
-    // 1) dados.csv; 2) Dados_Completos_Grupo_2_all.csv
     let resp = await fetch('dados.csv', {cache:'no-store'});
     if(!resp.ok){ resp = await fetch('Dados_Completos_Grupo_2_all.csv', {cache:'no-store'}); }
     if(!resp.ok) return;
@@ -139,14 +138,14 @@ async function loadCSV(){
     }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
 
     render(true);
-    updateGpsChip();
+    updateButtons();
   }catch(e){ /* silencioso */ }
 }
 
 /* =================== Render da lista =================== */
 function render(force=false){
   const now = performance.now();
-  if(!force && now - lastRender < 200) return;
+  if(!force && now - lastRender < 180) return;
   lastRender = now;
 
   const ul = document.getElementById('list');
@@ -157,7 +156,7 @@ function render(force=false){
   items.forEach((o, idx)=>{
     const li = document.createElement('li');
     li.textContent = o.id;
-    if(idx===0) li.style.borderColor = '#34d399'; // destaque do mais próximo
+    if(idx===0) li.style.borderColor = '#34d399';
     ul.appendChild(li);
   });
 }
@@ -167,22 +166,45 @@ function startGPS(){
   if(!('geolocation' in navigator)) return;
   navigator.geolocation.watchPosition(pos=>{
     lastPos = { lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy };
+    updateGpsChip();
     render();
-    updateGpsChip();  // controla o “verde/OK” e o botão
+    updateButtons();
   }, ()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
 }
 
 /* =================== Envio WhatsApp =================== */
-btnWA.addEventListener('click', ()=>{
-  if(!lastPos || !dataset.length) return;
-  // Somente é exibido quando “verde”, mas validamos por segurança
-  if(!(gpsChip.classList.contains('ok'))) return;
+const btnSend = document.getElementById('btnSend');
+const btnMap  = document.getElementById('btnMap');
 
+function updateButtons(){
+  // Habilita botões somente quando há base e posição (NÃO trava por precisão)
+  const ok = (dataset.length && lastPos);
+  btnSend.disabled = !ok;
+  btnMap.disabled  = !ok;
+}
+
+btnSend.addEventListener('click', ()=>{
+  if(!lastPos || !dataset.length) return;
   const items = nearestN(lastPos.lat, lastPos.lon, 10);
   if(!items.length) return;
 
-  let tx = '';
-  items.forEach(o => tx += `ID: ${o.id}\n`); // apenas “ID: xxxx”
+  const accTxt = fmtAcc(lastPos.acc);
+  let tx = `GPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
+  items.forEach(o => tx += `ID: ${o.id}\n`); // apenas "ID: xxxx"
+  window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
+});
+
+btnMap.addEventListener('click', ()=>{
+  if(!lastPos || !dataset.length) return;
+  const items = nearestN(lastPos.lat, lastPos.lon, 10);
+  if(!items.length) return;
+
+  const accTxt = fmtAcc(lastPos.acc);
+  let tx = `Mapa (pontos próximos)\nGPS agora: Lat ${lastPos.lat.toFixed(6)}, Lon ${lastPos.lon.toFixed(6)} · Precisão ${accTxt}\n`;
+  // Para cada ponto, um link do Google Maps (abre pino do ponto)
+  items.forEach(o => {
+    tx += `ID: ${o.id} → https://maps.google.com/?q=${o.lat.toFixed(6)},${o.lon.toFixed(6)}\n`;
+  });
   window.open('https://wa.me/?text='+encodeURIComponent(tx),'_blank');
 });
 
