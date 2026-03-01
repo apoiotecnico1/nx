@@ -1,139 +1,520 @@
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NOX mais próximos — Auto-GPS (Top 10)</title>
-  <meta name="theme-color" content="#0a7" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NOX mais próximos (Top 10)</title>
+  <meta name="color-scheme" content="light dark" />
   <style>
-    :root{--bg:#0b0e11;--panel:#12171c;--muted:#90a4b8;--fg:#e6eef5;--accent:#13b37a;--line:#1f2a33}
-    *{box-sizing:border-box}
-    body{margin:0;background:#0b0e11;color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto}
-    header{position:sticky;top:0;z-index:2;background:#0b0e11cc;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-    header .wrap{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px 14px}
-    h1{font-size:16px;margin:0;font-weight:700}
-    main{max-width:820px;margin:0 auto;padding:12px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 4px 16px #0006}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .muted{color:var(--muted)}
-    .pill{display:inline-flex;gap:6px;align-items:center;background:#0d1922;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
-    #ids{list-style:none;margin:10px 0 0 0;padding:0}
-    #ids li{padding:10px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
-    #ids small{color:var(--muted)}
-    button{background:linear-gradient(180deg,#14ba80,#0aa36f);border:none;color:#08261b;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer}
-    .grid{display:grid;grid-template-columns:1fr auto auto;gap:8px}
-    @media (max-width:640px){.grid{grid-template-columns:1fr}}
+    :root {
+      --bg: #ffffff;
+      --fg: #0f172a;
+      --muted: #475569;
+      --accent: #0ea5e9;
+      --card: #f8fafc;
+      --border: #e2e8f0;
+      --ok: #16a34a;
+      --err: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b1220;
+        --fg: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --card: #0f172a;
+        --border: #1f2937;
+      }
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      line-height: 1.45;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0 8px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 2.2vw + 0.8rem, 1.6rem);
+      font-weight: 700;
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background .2s ease, transform .02s ease;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media (min-width: 640px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .kvs {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kvs dt {
+      color: var(--muted);
+    }
+    .kvs dd {
+      margin: 0;
+      font-weight: 600;
+    }
+    .status {
+      margin-top: 6px;
+      font-size: .95rem;
+      color: var(--muted);
+    }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    ol#topList {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+    }
+    .item-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--card) 80%, transparent);
+    }
+    .id {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .dist {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    footer {
+      margin-top: 16px;
+      padding: 10px 0 24px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    code.src {
+      background: color-mix(in srgb, var(--fg) 8%, transparent);
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      color: inherit;
+    }
   </style>
+
+  <!-- PapaParse (CSV) via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
-  <header>
-    <div class="wrap">
+  <div class="container">
+    <header>
       <h1>NOX mais próximos (Top 10)</h1>
-      <div class="row">
-        <button id="btnWhats">Enviar IDs no WhatsApp</button>
-      </div>
-    </div>
-  </header>
+      <button id="btnWhats" class="btn" type="button">Enviar IDs no WhatsApp</button>
+    </header>
 
-  <main>
-    <section class="card">
-      <div class="grid">
-        <div class="row"><span class="pill">📍 <b id="gpsLat">–</b>, <b id="gpsLon">–</b></span><span class="muted" id="acc">Precisão: —</span></div>
-        <div class="muted" id="status">Carregando dados e localização…</div>
-        <div class="muted" id="info"></div>
+    <div class="grid">
+      <section class="card">
+        <h2 style="margin:0 0 8px;font-size:1.05rem;">GPS</h2>
+        <dl class="kvs">
+          <dt>Latitude:</dt><dd id="latVal">—</dd>
+          <dt>Longitude:</dt><dd id="lonVal">—</dd>
+          <dt>Precisão:</dt><dd id="accVal">—</dd>
+          <dt>Status:</dt><dd id="statusVal" class="status">Carregando dados e localização…</dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2 style="margin:0 0 8px;font-size:1.05rem;">Top 10 mais próximos</h2>
+        <ol id="topList" aria-live="polite"></ol>
+        <div id="listStatus" class="status">Aguardando dados…</div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="meta">
+        <div id="footerInfo">Fonte: <code class="src">—</code> · pontos válidos: 0</div>
       </div>
-      <ul id="ids"></ul>
-    </section>
-  </main>
+    </footer>
+  </div>
 
   <script>
-  // Caminhos: primeiro raiz, depois /data
-  const DATASET_PATHS = [
-    './Dados_Completos_Grupo_2_all.csv',
-    './data/Dados_Completos_Grupo_2_all.csv'
-  ];
+    // ==========================
+    // Utils
+    // ==========================
+    const $ = (sel) => document.querySelector(sel);
+    const nfBR2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const nfBR0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+    const nfCoord = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 5, maximumFractionDigits: 6 });
 
-  const S = { pontos: [], pos: null, prontoDados: false };
-  const toNum = (v)=>{ if(v==null) return NaN; if(typeof v==='number') return v; const s=String(v).trim(); const t=s.replace(/\./g,'').replace(',', '.'); const n=Number(t); return Number.isFinite(n)?n:Number(s); };
-  function hav(lat1,lon1,lat2,lon2){ const R=6371000, d2r=d=>d*Math.PI/180; const dLat=d2r(lat2-lat1), dLon=d2r(lon2-lon1); const a=Math.sin(dLat/2)**2+Math.cos(d2r(lat1))*Math.cos(d2r(lat2))*Math.sin(dLon/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
-  function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-
-  function render(){
-    const ul = document.getElementById('ids');
-    if(!S.pos){ document.getElementById('status').textContent = 'Aguardando GPS…'; return; }
-    if(!S.pontos.length){ document.getElementById('status').textContent = 'Sem pontos carregados.'; return; }
-    const top = S.pontos.map(p=>({...p,d:hav(S.pos.lat,S.pos.lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d).slice(0,10);
-    ul.innerHTML = top.map(p=>`<li><b>${escapeHtml(p.id)}</b> <small>${Math.round(p.d)} m</small></li>`).join('');
-    document.getElementById('status').textContent = 'Pronto';
-  }
-
-  function startGPS(){
-    if(!('geolocation' in navigator)){
-      document.getElementById('status').textContent='Geolocalização não suportada.';return;
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
     }
-    navigator.geolocation.watchPosition((pos)=>{
-      S.pos={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
-      document.getElementById('gpsLat').textContent=S.pos.lat.toFixed(6);
-      document.getElementById('gpsLon').textContent=S.pos.lon.toFixed(6);
-      document.getElementById('acc').textContent='Precisão: '+Math.round(S.pos.acc)+' m';
-      if(S.prontoDados) render();
-    },(err)=>{
-      document.getElementById('status').textContent=err.message||'Falha ao obter localização';
-    },{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
-  }
+    function parsePtNumber(v) {
+      if (v === null || v === undefined) return NaN;
+      const s = String(v).trim();
+      if (!s) return NaN;
+      // Remove separador de milhar (.) e normaliza decimal (, -> .)
+      const normalized = s.replace(/\./g, '').replace(',', '.');
+      const n = Number(normalized);
+      return Number.isFinite(n) ? n : NaN;
+    }
+    function haversineMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // raio da Terra em metros
+      const toRad = (deg) => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+    function formatDistance(meters) {
+      if (!Number.isFinite(meters)) return '—';
+      if (meters < 1000) return nfBR0.format(Math.round(meters)) + ' m';
+      const km = meters / 1000;
+      return nfBR2.format(km) + ' km';
+    }
 
-  async function carregarCSV(){
-    let ok=false, lastErr='';
-    for(const path of DATASET_PATHS){
-      try{
-        const res = await fetch(path, {cache:'no-store'});
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        Papa.parse(text, {
-          header: true,
-          skipEmptyLines: true,
-          delimiter: ';',
-          complete: (r)=>{
-            const lower = r.meta.fields.map(k=>k.toLowerCase());
-            const keyBy = (alts)=>{ const i = lower.findIndex(k=>alts.some(a=>k.includes(a))); return i>=0? r.meta.fields[i]: null; };
-            const kLat = keyBy(['latitude','lat']);
-            const kLon = keyBy(['longitude','lon','long']);
-            const kId  = keyBy(['id do nox','idnox','id']) || 'ID do NOX';
-            if(!kLat || !kLon){ throw new Error('Colunas Latitude/Longitude não encontradas'); }
-            const pts = r.data.map(row=>{
-              const lat = toNum(row[kLat]);
-              const lon = toNum(row[kLon]);
-              if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat===0||lon===0) return null;
-              const id  = String(row[kId] ?? row['ID'] ?? 'Sem ID').trim();
-              return {id, lat, lon};
-            }).filter(Boolean);
-            S.pontos = pts;
-            S.prontoDados = true;
-            document.getElementById('info').textContent = `Fonte: ${path} · pontos válidos: ${pts.length}`;
-            if(S.pos) render();
+    // ==========================
+    // Estado global
+    // ==========================
+    let dataset = [];          // { id: string, lat: number, lon: number }
+    let validCount = 0;
+    let dataSourcePath = '—';
+    let lastPosition = null;   // { lat, lon, acc }
+    let lastTopTen = [];       // cache do último Top 10 para WhatsApp
+    let watchingId = null;
+
+    // ==========================
+    // CSV Loader
+    // ==========================
+    async function carregarCSV() {
+      const paths = [
+        './Dados_Completos_Grupo_2_all.csv',
+        './data/Dados_Completos_Grupo_2_all.csv'
+      ];
+      let lastErr = null;
+
+      for (const path of paths) {
+        try {
+          const resp = await fetch(path, { cache: 'no-store' });
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
           }
-        });
-        ok=true; break;
-      }catch(e){ lastErr=e.message; }
+          const text = await resp.text();
+          if (typeof Papa === 'undefined' || !Papa || !Papa.parse) {
+            throw new Error('Biblioteca CSV indisponível');
+          }
+          const parsed = Papa.parse(text, {
+            header: true,
+            delimiter: ';',
+            skipEmptyLines: 'greedy',
+            dynamicTyping: false
+          });
+
+          if (parsed.errors && parsed.errors.length) {
+            const e0 = parsed.errors[0];
+            throw new Error(`Falha ao parsear CSV (linha ${e0.row ?? '-' }): ${e0.message || 'Erro desconhecido'}`);
+          }
+
+          const fields = (parsed.meta && parsed.meta.fields) ? parsed.meta.fields : [];
+          // Mapear colunas por nomes (case-insensitive)
+          const pick = (cands) => {
+            const lc = fields.map(f => f ? String(f).toLowerCase().trim() : '');
+            for (const c of cands) {
+              const idx = lc.indexOf(c);
+              if (idx >= 0) return fields[idx];
+            }
+            return null;
+          };
+          const latKey = pick(['latitude','lat']);
+          const lonKey = pick(['longitude','lon','long']);
+          const idKey  = (function(){
+            const lc = fields.map(f => f ? String(f).toLowerCase().trim() : '');
+            let idx = lc.indexOf('id do nox');
+            if (idx >= 0) return fields[idx];
+            idx = lc.indexOf('idnox'); if (idx >= 0) return fields[idx];
+            idx = lc.indexOf('id');    if (idx >= 0) return fields[idx];
+            return null;
+          })();
+
+          if (!latKey || !lonKey || !idKey) {
+            throw new Error('Colunas necessárias não encontradas (latitude/longitude/ID).');
+          }
+
+          // Converter e filtrar
+          const rows = parsed.data;
+          const out = [];
+          for (const row of rows) {
+            const rawLat = row[latKey];
+            const rawLon = row[lonKey];
+            const rawId  = row[idKey];
+
+            const lat = parsePtNumber(rawLat);
+            const lon = parsePtNumber(rawLon);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            if (lat === 0 && lon === 0) continue;
+            if (lat < -90 || lat > 90) continue;
+            if (lon < -180 || lon > 180) continue;
+
+            out.push({
+              id: (rawId === undefined || rawId === null || String(rawId).trim() === '') ? 'Sem ID' : String(rawId).trim(),
+              lat, lon
+            });
+          }
+
+          dataset = out;
+          validCount = out.length;
+          dataSourcePath = path;
+
+          atualizarFooter();
+          atualizarListStatus();
+          render(); // caso já tenha GPS
+
+          return; // sucesso, sai da função
+        } catch (err) {
+          lastErr = err;
+          // tenta próximo caminho
+        }
+      }
+
+      // Se chegou aqui, falharam as duas tentativas
+      dataset = [];
+      validCount = 0;
+      dataSourcePath = '—';
+      atualizarFooter();
+      setStatus(`Erro ao carregar dados: ${lastErr && lastErr.message ? lastErr.message : 'Falha desconhecida'}`, true);
+      atualizarListStatus();
     }
-    if(!ok){ document.getElementById('status').textContent = 'Erro ao carregar dados: '+(lastErr||'desconhecido'); }
-  }
 
-  function sendWhats(){
-    if(!S.pos||!S.pontos.length){ alert('Aguardando dados e GPS.'); return; }
-    const top = S.pontos.map(p=>({...p,d:hav(S.pos.lat,S.pos.lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d).slice(0,10);
-    const linhas = [ 'IDs mais próximos:', `📍 Posição: ${S.pos.lat.toFixed(6)}, ${S.pos.lon.toFixed(6)}`, ...top.map((p,i)=>`${i+1}. ${p.id} — ${Math.round(p.d)} m`) ];
-    const url = `https://wa.me/?text=${encodeURIComponent(linhas.join('
-'))}`;
-    window.open(url,'_blank');
-  }
+    // ==========================
+    // GPS
+    // ==========================
+    function startGPS() {
+      if (!('geolocation' in navigator)) {
+        setStatus('Falha ao obter localização: Sem suporte', true);
+        return;
+      }
+      setStatus('Aguardando GPS…');
+      try {
+        if (watchingId !== null) {
+          navigator.geolocation.clearWatch(watchingId);
+        }
+        watchingId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            lastPosition = { lat: latitude, lon: longitude, acc: accuracy };
+            $('#latVal').textContent = nfCoord.format(latitude);
+            $('#lonVal').textContent = nfCoord.format(longitude);
+            $('#accVal').textContent = nfBR0.format(accuracy) + ' m';
 
-  document.getElementById('btnWhats').addEventListener('click', sendWhats);
+            if (dataset.length > 0) {
+              setStatus('Pronto', false, true);
+            } else {
+              setStatus('Carregando dados…');
+            }
 
-  startGPS();
-  carregarCSV();
+            render();
+          },
+          (error) => {
+            let msg = 'Falha ao obter localização';
+            if (error && typeof error.code !== 'undefined') {
+              switch (error.code) {
+                case error.PERMISSION_DENIED: msg = 'Falha ao obter localização: Permissão negada'; break;
+                case error.POSITION_UNAVAILABLE: msg = 'Falha ao obter localização: Indisponível'; break;
+                case error.TIMEOUT: msg = 'Falha ao obter localização: Tempo esgotado'; break;
+              }
+            }
+            setStatus(msg, true);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 15000
+          }
+        );
+      } catch (err) {
+        setStatus('Falha ao obter localização: ' + (err.message || 'Erro desconhecido'), true);
+      }
+    }
+
+    // ==========================
+    // Renderização
+    // ==========================
+    function render() {
+      const listEl = $('#topList');
+      listEl.innerHTML = '';
+
+      if (!lastPosition && dataset.length === 0) {
+        $('#listStatus').textContent = 'Carregando dados e aguardando GPS…';
+        $('#listStatus').className = 'status';
+        return;
+      }
+      if (!lastPosition) {
+        $('#listStatus').textContent = 'Aguardando GPS…';
+        $('#listStatus').className = 'status';
+        return;
+      }
+      if (dataset.length === 0) {
+        $('#listStatus').textContent = 'Carregando dados…';
+        $('#listStatus').className = 'status';
+        return;
+      }
+
+      const { lat, lon } = lastPosition;
+      const withDist = dataset.map(p => ({
+        id: p.id,
+        lat: p.lat,
+        lon: p.lon,
+        d: haversineMeters(lat, lon, p.lat, p.lon)
+      }));
+
+      withDist.sort((a, b) => a.d - b.d);
+      const top10 = withDist.slice(0, 10);
+      lastTopTen = top10;
+
+      if (top10.length === 0) {
+        $('#listStatus').textContent = 'Nenhum ponto válido encontrado.';
+        $('#listStatus').className = 'status err';
+        return;
+      }
+
+      for (const item of top10) {
+        const li = document.createElement('li');
+        const row = document.createElement('div');
+        row.className = 'item-line';
+
+        const idSpan = document.createElement('span');
+        idSpan.className = 'id';
+        idSpan.innerHTML = escapeHtml(item.id);
+
+        const dSpan = document.createElement('span');
+        dSpan.className = 'dist';
+        dSpan.textContent = formatDistance(item.d);
+
+        row.appendChild(idSpan);
+        row.appendChild(dSpan);
+        li.appendChild(row);
+        listEl.appendChild(li);
+      }
+
+      $('#listStatus').textContent = 'Atualizado com base na sua posição atual.';
+      $('#listStatus').className = 'status ok';
+    }
+
+    function setStatus(msg, isError = false, isOk = false) {
+      const el = $('#statusVal');
+      el.textContent = msg;
+      el.className = 'status' + (isError ? ' err' : (isOk ? ' ok' : ''));
+    }
+
+    function atualizarFooter() {
+      $('#footerInfo').innerHTML = `Fonte: <code class="src">${escapeHtml(dataSourcePath)}</code> · pontos válidos: ${nfBR0.format(validCount)}`;
+    }
+    function atualizarListStatus() {
+      if (dataset.length === 0) {
+        $('#listStatus').textContent = 'Carregando dados…';
+        $('#listStatus').className = 'status';
+      } else {
+        $('#listStatus').textContent = 'Dados carregados. Aguardando GPS…';
+        $('#listStatus').className = 'status';
+      }
+    }
+
+    // ==========================
+    // WhatsApp
+    // ==========================
+    function sendWhats() {
+      if (!lastPosition || !lastTopTen || lastTopTen.length === 0) {
+        alert('Aguardando GPS e dados para montar a lista.');
+        return;
+      }
+      const { lat, lon } = lastPosition;
+      let msg = 'IDs mais próximos:\n';
+      msg += `📍 Posição: ${nfCoord.format(lat)}, ${nfCoord.format(lon)}\n`;
+      lastTopTen.forEach((item, idx) => {
+        const rank = idx + 1;
+        const idText = String(item.id).replace(/\s+/g, ' ').trim();
+        msg += `${rank}. ${idText} — ${formatDistance(item.d)}\n`;
+      });
+
+      const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // ==========================
+    // Inicialização
+    // ==========================
+    document.addEventListener('DOMContentLoaded', () => {
+      // Botão WhatsApp
+      $('#btnWhats').addEventListener('click', sendWhats);
+
+      // Estados iniciais
+      setStatus('Carregando dados e localização…');
+      atualizarListStatus();
+      atualizarFooter();
+
+      // Iniciar processos paralelos
+      carregarCSV();
+      startGPS();
+    });
   </script>
 </body>
 </html>
